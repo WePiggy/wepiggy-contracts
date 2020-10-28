@@ -1,0 +1,10 @@
+/node_modules/
+/build/
+.vscode
+/bin
+.idea/
+
+# OpenZeppelin
+.openzeppelin/dev-*.json
+.openzeppelin/.session
+
