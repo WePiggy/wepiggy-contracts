@@ -279,7 +279,7 @@ contract PiggyBreeder is Ownable {
                     if (i == lastRewardBlockPower) {
                         multiplier = getMultiplier(pool.lastRewardBlock, startBlock.add(lastRewardBlockPower.add(1).mul(reduceIntervalBlock)).sub(1));
                     } else if (i == blockNumberPower) {
-                        multiplier = getMultiplier(startBlock.add(blockNumberPower.mul(reduceIntervalBlock)).sub(1), block.number);
+                        multiplier = getMultiplier(startBlock.add(blockNumberPower.mul(reduceIntervalBlock)), block.number);
                     } else {
                         multiplier = reduceIntervalBlock;
                     }
@@ -501,6 +501,3 @@ contract PiggyBreeder is Ownable {
 
 
 }
-
-
-
