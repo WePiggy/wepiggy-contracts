@@ -5,6 +5,4 @@
 .idea/
 
 # OpenZeppelin
-.openzeppelin/dev-*.json
-.openzeppelin/.session
-
+.openzeppelin/
