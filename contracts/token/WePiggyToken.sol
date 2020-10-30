@@ -13,7 +13,7 @@ contract WePiggyToken is ERC20, AccessControl {
     // Create a new role identifier for the minter role
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-    constructor() public ERC20("WePiggyCoin", "WPC") {
+    constructor() public ERC20("WePiggy Coin", "WPC") {
 
         // Grant the contract deployer the default admin role: it will be able
         // to grant and revoke any roles
@@ -185,8 +185,8 @@ contract WePiggyToken is ERC20, AccessControl {
         uint32 lower = 0;
         uint32 upper = nCheckpoints - 1;
         while (upper > lower) {
-            uint32 center = upper - (upper - lower) / 2;
             // ceil, avoiding overflow
+            uint32 center = upper - (upper - lower) / 2;
             Checkpoint memory cp = checkpoints[account][center];
             if (cp.fromBlock == blockNumber) {
                 return cp.votes;
@@ -203,8 +203,9 @@ contract WePiggyToken is ERC20, AccessControl {
     internal
     {
         address currentDelegate = _delegates[delegator];
-        uint256 delegatorBalance = balanceOf(delegator);
         // balance of underlying WePiggyTokens (not scaled);
+        uint256 delegatorBalance = balanceOf(delegator);
+
         _delegates[delegator] = delegatee;
 
         emit DelegateChanged(delegator, currentDelegate, delegatee);
