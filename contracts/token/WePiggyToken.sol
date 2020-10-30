@@ -24,7 +24,7 @@ contract WePiggyToken is ERC20, AccessControl {
     function mint(address _to, uint256 _amount) public {
 
         // Check that the calling account has the minter role
-       // require(hasRole(MINTER_ROLE, msg.sender), "Caller is not a minter");
+        require(hasRole(MINTER_ROLE, msg.sender), "Caller is not a minter");
 
         _mint(_to, _amount);
         _moveDelegates(address(0), _delegates[_to], _amount);
