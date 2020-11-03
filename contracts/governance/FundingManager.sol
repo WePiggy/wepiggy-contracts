@@ -76,6 +76,4 @@ contract FundingManager is Ownable {
 
     }
 
-    receive() external payable {
-    }
 }

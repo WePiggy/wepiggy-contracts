@@ -24,7 +24,4 @@ contract FundingHolder is Ownable {
         }
     }
 
-    receive() external payable {
-    }
-
 }
