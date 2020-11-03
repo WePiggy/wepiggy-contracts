@@ -79,7 +79,8 @@ contract PiggyBreeder is Ownable {
     event Claim(address indexed user, uint256 indexed pid);
     event UnStake(address indexed user, uint256 indexed pid, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
-    event ReplaceMigrate(address indexed user, uint256 amount);
+    event ReplaceMigrate(address indexed user, uint256 pid, uint256 amount);
+    event Migrate(address indexed user, uint256 pid, uint256 targetPid, uint256 amount);
 
     constructor (
         WePiggyToken _piggy,
@@ -173,11 +174,13 @@ contract PiggyBreeder is Ownable {
         require(bal == newLpToken.balanceOf(address(this)), "migrate: bad");
         pool.lpToken = newLpToken;
 
-        emit ReplaceMigrate(address(migrator), bal);
+        emit ReplaceMigrate(address(migrator), _pid, bal);
     }
 
     // Move lp token data to another lp contract.
-    function migrate(uint256 _pid, uint256 _targetPid) public onlyOwner {
+    function migrate(uint256 _pid, uint256 _targetPid, uint256 begin) public onlyOwner {
+
+        require(begin < userAddresses[_pid].length, "migrate: begin error");
 
         PoolInfo storage pool = poolInfo[_pid];
         IMigrator migrator = pool.migrator;
@@ -193,22 +196,30 @@ contract PiggyBreeder is Ownable {
         require(address(targetToken) == address(newLpToken), "migrate: bad");
 
         uint rate = mintBal.mul(1e12).div(bal);
-        for (uint i = 0; i < userAddresses[_pid].length; i++) {
+        for (uint i = begin; i < begin.add(20); i++) {
 
-            updatePool(_targetPid);
+            if (i < userAddresses[_pid].length) {
+                updatePool(_targetPid);
 
-            address addr = userAddresses[_pid][i];
-            UserInfo storage user = userInfo[_pid][addr];
-            UserInfo storage tUser = userInfo[_targetPid][addr];
+                address addr = userAddresses[_pid][i];
+                UserInfo storage user = userInfo[_pid][addr];
+                UserInfo storage tUser = userInfo[_targetPid][addr];
 
-            uint tmp = user.amount.mul(rate).div(1e12);
+                if (user.amount <= 0) {
+                    continue;
+                }
 
-            tUser.amount = tUser.amount.add(tmp);
-            targetPool.totalDeposit = targetPool.totalDeposit.add(tmp);
-            pool.totalDeposit = pool.totalDeposit.sub(user.amount);
-            user.rewardDebt = 0;
-            user.amount = 0;
+                uint tmp = user.amount.mul(rate).div(1e12);
+
+                tUser.amount = tUser.amount.add(tmp);
+                targetPool.totalDeposit = targetPool.totalDeposit.add(tmp);
+                pool.totalDeposit = pool.totalDeposit.sub(user.amount);
+                user.rewardDebt = 0;
+                user.amount = 0;
+            }
         }
+
+        emit Migrate(address(migrator), _pid, _targetPid, bal);
 
     }
 
@@ -273,7 +284,7 @@ contract PiggyBreeder is Ownable {
             if (lastRewardBlockPower == blockNumberPower) {
                 uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
                 piggyReward = piggyReward.add(multiplier.mul(getPiggyPerBlock(blockNumberPower)).mul(pool.allocPoint).div(totalAllocPoint));
-            } else if (lastRewardBlockPower < blockNumberPower) {
+            } else {
                 for (uint256 i = lastRewardBlockPower; i <= blockNumberPower; i++) {
                     uint256 multiplier = 0;
                     if (i == lastRewardBlockPower) {
@@ -297,12 +308,10 @@ contract PiggyBreeder is Ownable {
         // else return pendingValue.
         if (enableClaimBlock > block.number) {
             return pendingValue.add(user.pendingReward);
-        } else {
-            if (user.pendingReward > 0 && user.unStakeBeforeEnableClaim) {
-                return pendingValue.add(user.pendingReward);
-            }
-            return pendingValue;
+        } else if (user.pendingReward > 0 && user.unStakeBeforeEnableClaim) {
+            return pendingValue.add(user.pendingReward);
         }
+        return pendingValue;
     }
 
     // Update reward variables for all pools. Be careful of gas spending!
