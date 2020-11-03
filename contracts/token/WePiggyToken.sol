@@ -30,6 +30,12 @@ contract WePiggyToken is ERC20, AccessControl {
         _moveDelegates(address(0), _delegates[_to], _amount);
     }
 
+    //  transfers delegate authority when sending a token.
+    // https://medium.com/bulldax-finance/sushiswap-delegation-double-spending-bug-5adcc7b3830f
+    function _transfer(address sender, address recipient, uint256 amount) internal override virtual {
+        super._transfer(sender, recipient, amount);
+        _moveDelegates(_delegates[sender], _delegates[recipient], amount);
+    }
 
     // Copied and modified from YAM code:
     // https://github.com/yam-finance/yam-protocol/blob/master/contracts/token/YAMGovernanceStorage.sol
