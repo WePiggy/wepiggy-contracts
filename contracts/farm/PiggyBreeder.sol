@@ -192,8 +192,7 @@ contract PiggyBreeder is Ownable {
         (IERC20 newLpToken, uint mintBal) = migrator.migrate(lpToken);
 
         PoolInfo storage targetPool = poolInfo[_targetPid];
-        IERC20 targetToken = targetPool.lpToken;
-        require(address(targetToken) == address(newLpToken), "migrate: bad");
+        require(address(targetPool.lpToken) == address(newLpToken), "migrate: bad");
 
         uint rate = mintBal.mul(1e12).div(bal);
         for (uint i = begin; i < begin.add(20); i++) {
@@ -217,6 +216,7 @@ contract PiggyBreeder is Ownable {
                 user.rewardDebt = 0;
                 user.amount = 0;
             }
+
         }
 
         emit Migrate(address(migrator), _pid, _targetPid, bal);
