@@ -211,10 +211,13 @@ contract PiggyBreeder is Ownable {
                 uint tmp = user.amount.mul(rate).div(1e12);
 
                 tUser.amount = tUser.amount.add(tmp);
+                tUser.rewardDebt = tUser.rewardDebt.add(user.rewardDebt.mul(rate).div(1e12));
                 targetPool.totalDeposit = targetPool.totalDeposit.add(tmp);
                 pool.totalDeposit = pool.totalDeposit.sub(user.amount);
                 user.rewardDebt = 0;
                 user.amount = 0;
+            } else {
+                break;
             }
 
         }
