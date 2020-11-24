@@ -4,22 +4,18 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "@openzeppelin/contracts-ethereum-package": "^3.0.0",
-    "@openzeppelin/contracts": "^3.0.0"
+    "@openzeppelin/contracts": "^3.0.0",
+    "@openzeppelin/contracts-ethereum-package": "^3.0.0"
   },
   "devDependencies": {
-    "@nomiclabs/hardhat-ethers": "^2.0.0",
-    "@nomiclabs/hardhat-waffle": "^2.0.0",
     "@openzeppelin/cli": "^2.8.2",
     "@openzeppelin/test-environment": "^0.1.5",
     "@openzeppelin/test-helpers": "^0.5.6",
     "@truffle/hdwallet-provider": "^1.1.0",
     "chai": "^4.2.0",
-    "ethereum-waffle": "^3.1.2",
-    "ethers": "^5.0.19",
     "ganache-cli": "^6.10.2",
-    "hardhat": "^2.0.2",
     "mocha": "^8.1.3",
+    "sol-merger": "^3.1.0",
     "truffle-flattener": "^1.5.0"
   },
   "scripts": {
@@ -29,6 +25,7 @@
     "upgrade": "npx oz upgrade",
     "send": "npx oz send-tx",
     "call": "npx oz call",
-    "test": "yarn compile && mocha --exit --recursive"
+    "test": "yarn compile && mocha --exit --recursive",
+    "sol-merger": "sol-merger \"./contracts/**/*.sol\" ./build/mergered"
   }
 }
