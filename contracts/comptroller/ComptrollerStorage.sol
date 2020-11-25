@@ -76,8 +76,8 @@ contract ComptrollerStorage {
     bool public _borrowGuardianPaused;
     bool public transferGuardianPaused;
     bool public seizeGuardianPaused;
-    mapping(address => bool) public mintGuardianPaused;
-    mapping(address => bool) public borrowGuardianPaused;
+    mapping(address => bool) public pTokenMintGuardianPaused;
+    mapping(address => bool) public pTokenBorrowGuardianPaused;
     bool public distributeWpcPaused;
 
 

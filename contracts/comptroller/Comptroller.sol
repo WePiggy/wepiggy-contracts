@@ -211,7 +211,7 @@ contract Comptroller is ComptrollerStorage, IComptroller, ComptrollerErrorReport
     function mintAllowed(address pToken, address minter, uint mintAmount) external override(IComptroller) returns (uint){
 
         // Pausing is a very serious situation - we revert to sound the alarms
-        require(!mintGuardianPaused[pToken], "mint is paused");
+        require(!pTokenMintGuardianPaused[pToken], "mint is paused");
 
         //Shh - currently unused. It's written here to eliminate compile-time alarms.
         minter;
@@ -289,7 +289,7 @@ contract Comptroller is ComptrollerStorage, IComptroller, ComptrollerErrorReport
     function borrowAllowed(address pToken, address borrower, uint borrowAmount) external override(IComptroller) returns (uint) {
 
         // Pausing is a very serious situation - we revert to sound the alarms
-        require(!borrowGuardianPaused[pToken], "borrow is paused");
+        require(!pTokenBorrowGuardianPaused[pToken], "borrow is paused");
 
         if (!markets[pToken].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
@@ -935,7 +935,7 @@ contract Comptroller is ComptrollerStorage, IComptroller, ComptrollerErrorReport
         require(msg.sender == pauseGuardian || msg.sender == owner(), "only pause guardian and owner can pause");
         require(msg.sender == owner() || state == true, "only owner can unpause");
 
-        mintGuardianPaused[address(pToken)] = state;
+        pTokenMintGuardianPaused[address(pToken)] = state;
         emit ActionPaused(pToken, "Mint", state);
         return state;
     }
@@ -945,7 +945,7 @@ contract Comptroller is ComptrollerStorage, IComptroller, ComptrollerErrorReport
         require(msg.sender == pauseGuardian || msg.sender == owner(), "only pause guardian and owner can pause");
         require(msg.sender == owner() || state == true, "only owner can unpause");
 
-        borrowGuardianPaused[address(pToken)] = state;
+        pTokenBorrowGuardianPaused[address(pToken)] = state;
         emit ActionPaused(pToken, "Borrow", state);
         return state;
     }
