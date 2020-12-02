@@ -1495,11 +1495,11 @@ abstract contract PToken is IPToken, Exponential, TokenErrorReporter, OwnableUpg
     }
 
     function _setMinInterestAccumulated(uint _minInterestAccumulated) public onlyOwner override returns (uint256){
-        uint OldMinInterestAccumulated = minInterestAccumulated;
+        uint oldMinInterestAccumulated = minInterestAccumulated;
 
         minInterestAccumulated = _minInterestAccumulated;
 
-        emit MinInterestAccumulated(OldMinInterestAccumulated, _minInterestAccumulated);
+        emit NewMinInterestAccumulated(oldMinInterestAccumulated, _minInterestAccumulated);
 
         return uint(Error.NO_ERROR);
     }

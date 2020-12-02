@@ -91,7 +91,7 @@ abstract contract IPToken is PTokenStorage {
 
     event NewMigrator(address oldMigrator, address newMigrator);
 
-    event MinInterestAccumulated(uint256 OldMinInterestAccumulated, uint256 newMinInterestAccumulated);
+    event NewMinInterestAccumulated(uint256 oldMinInterestAccumulated, uint256 newMinInterestAccumulated);
 
     /*** User Interface ***/
 
