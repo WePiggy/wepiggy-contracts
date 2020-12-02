@@ -153,6 +153,9 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
     }
 
     function distributeTransferWpc(address pToken, address src, address dst, bool distributeAll) public override(IPiggyDistribution) {
+
+        require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
+
         updateWpcSupplyIndex(pToken);
         distributeSupplierWpc(pToken, src, distributeAll);
         distributeSupplierWpc(pToken, dst, distributeAll);
