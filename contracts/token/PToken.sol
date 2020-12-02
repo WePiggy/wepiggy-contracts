@@ -701,7 +701,7 @@ abstract contract PToken is IPToken, Exponential, TokenErrorReporter, OwnableUpg
         accountTokens[minter] = vars.accountTokensNew;
 
         /* We emit a Mint event, and a Transfer event */
-        emit Mint(minter, vars.actualMintAmount, vars.mintTokens, vars.accountTokensNew, vars.accountTokensNew);
+        emit Mint(minter, vars.actualMintAmount, vars.mintTokens, vars.totalSupplyNew, vars.accountTokensNew);
         emit Transfer(address(this), minter, vars.mintTokens);
 
         /* We call the defense hook */
@@ -1111,9 +1111,9 @@ abstract contract PToken is IPToken, Exponential, TokenErrorReporter, OwnableUpg
      * @param repayAmount The amount of the underlying borrowed asset to repay
      * @return (uint, uint) An error code (0=success, otherwise a failure, see ErrorReporter.sol), and the actual repayment amount.
      */
-    function liquidateBorrowFresh(address liquidator, address borrower, uint repayAmount, IPToken cTokenCollateral) internal returns (uint, uint) {
+    function liquidateBorrowFresh(address liquidator, address borrower, uint repayAmount, IPToken pTokenCollateral) internal returns (uint, uint) {
         /* Fail if liquidate not allowed */
-        uint allowed = comptroller.liquidateBorrowAllowed(address(this), address(cTokenCollateral), liquidator, borrower, repayAmount);
+        uint allowed = comptroller.liquidateBorrowAllowed(address(this), address(pTokenCollateral), liquidator, borrower, repayAmount);
         if (allowed != 0) {
             return (failOpaque(Error.COMPTROLLER_REJECTION, FailureInfo.LIQUIDATE_COMPTROLLER_REJECTION, allowed), 0);
         }
@@ -1124,7 +1124,7 @@ abstract contract PToken is IPToken, Exponential, TokenErrorReporter, OwnableUpg
         }
 
         /* Verify cTokenCollateral market's block number equals current block number */
-        if (cTokenCollateral.accrualBlockNumber() != getBlockNumber()) {
+        if (pTokenCollateral.accrualBlockNumber() != getBlockNumber()) {
             return (fail(Error.MARKET_NOT_FRESH, FailureInfo.LIQUIDATE_COLLATERAL_FRESHNESS_CHECK), 0);
         }
 
@@ -1155,28 +1155,28 @@ abstract contract PToken is IPToken, Exponential, TokenErrorReporter, OwnableUpg
         // (No safe failures beyond this point)
 
         /* We calculate the number of collateral tokens that will be seized */
-        (uint amountSeizeError, uint seizeTokens) = comptroller.liquidateCalculateSeizeTokens(address(this), address(cTokenCollateral), actualRepayAmount);
+        (uint amountSeizeError, uint seizeTokens) = comptroller.liquidateCalculateSeizeTokens(address(this), address(pTokenCollateral), actualRepayAmount);
         require(amountSeizeError == uint(Error.NO_ERROR), "LIQUIDATE_COMPTROLLER_CALCULATE_AMOUNT_SEIZE_FAILED");
 
         /* Revert if borrower collateral token balance < seizeTokens */
-        require(cTokenCollateral.balanceOf(borrower) >= seizeTokens, "LIQUIDATE_SEIZE_TOO_MUCH");
+        require(pTokenCollateral.balanceOf(borrower) >= seizeTokens, "LIQUIDATE_SEIZE_TOO_MUCH");
 
         // If this is also the collateral, run seizeInternal to avoid re-entrancy, otherwise make an external call
         uint seizeError;
-        if (address(cTokenCollateral) == address(this)) {
+        if (address(pTokenCollateral) == address(this)) {
             seizeError = seizeInternal(address(this), liquidator, borrower, seizeTokens);
         } else {
-            seizeError = cTokenCollateral.seize(liquidator, borrower, seizeTokens);
+            seizeError = pTokenCollateral.seize(liquidator, borrower, seizeTokens);
         }
 
         /* Revert if seize tokens fails (since we cannot be sure of side effects) */
         require(seizeError == uint(Error.NO_ERROR), "token seizure failed");
 
         /* We emit a LiquidateBorrow event */
-        emit LiquidateBorrow(liquidator, borrower, actualRepayAmount, address(cTokenCollateral), seizeTokens);
+        emit LiquidateBorrow(liquidator, borrower, actualRepayAmount, address(pTokenCollateral), seizeTokens);
 
         /* We call the defense hook */
-        comptroller.liquidateBorrowVerify(address(this), address(cTokenCollateral), liquidator, borrower, actualRepayAmount, seizeTokens);
+        comptroller.liquidateBorrowVerify(address(this), address(pTokenCollateral), liquidator, borrower, actualRepayAmount, seizeTokens);
 
         return (uint(Error.NO_ERROR), actualRepayAmount);
     }
