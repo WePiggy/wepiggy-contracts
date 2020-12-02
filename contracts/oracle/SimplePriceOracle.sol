@@ -12,10 +12,13 @@ pragma solidity ^0.6.0;
 import "../token/PERC20.sol";
 import "./IPriceOracle.sol";
 import "../token/PToken.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol";
 
-contract SimplePriceOracle is IPriceOracle, OwnableUpgradeSafe {
+contract SimplePriceOracle is IPriceOracle, AccessControl {
+
+    // Create a new role identifier for the reporter role
+    bytes32 public constant REPORTER_ROLE = keccak256("REPORTER_ROLE");
 
     struct Datum {
         uint timestamp;
@@ -42,7 +45,11 @@ contract SimplePriceOracle is IPriceOracle, OwnableUpgradeSafe {
         }
     }
 
-    function setUnderlyingPrice(PToken pToken, uint price) public onlyOwner {
+    function setUnderlyingPrice(PToken pToken, uint price)  {
+
+        // Check that the calling account has the minter role
+        require(hasRole(REPORTER_ROLE, msg.sender), "Caller is not a reporter");
+
         address asset = _pETHUnderlying;
         if (!compareStrings(pToken.symbol(), "pETH")) {
             asset = address(PERC20(address(pToken)).underlying());
@@ -52,7 +59,11 @@ contract SimplePriceOracle is IPriceOracle, OwnableUpgradeSafe {
         emit PricePosted(asset, data[asset].price, price, price, bt);
     }
 
-    function setPrice(address asset, uint price) public onlyOwner {
+    function setPrice(address asset, uint price) public  {
+
+        // Check that the calling account has the minter role
+        require(hasRole(REPORTER_ROLE, msg.sender), "Caller is not a reporter");
+
         uint bt = block.timestamp;
         emit PricePosted(asset, data[asset].price, price, price, bt);
         data[asset] = Datum(bt, price);
