@@ -1081,25 +1081,25 @@ abstract contract PToken is IPToken, Exponential, TokenErrorReporter, OwnableUpg
      * @notice The sender liquidates the borrowers collateral.
      *  The collateral seized is transferred to the liquidator.
      * @param borrower The borrower of this cToken to be liquidated
-     * @param cTokenCollateral The market in which to seize collateral from the borrower
+     * @param pTokenCollateral The market in which to seize collateral from the borrower
      * @param repayAmount The amount of the underlying borrowed asset to repay
      * @return (uint, uint) An error code (0=success, otherwise a failure, see ErrorReporter.sol), and the actual repayment amount.
      */
-    function liquidateBorrowInternal(address borrower, uint repayAmount, IPToken cTokenCollateral) internal nonReentrant returns (uint, uint) {
+    function liquidateBorrowInternal(address borrower, uint repayAmount, IPToken pTokenCollateral) internal nonReentrant returns (uint, uint) {
         uint error = accrueInterest();
         if (error != uint(Error.NO_ERROR)) {
             // accrueInterest emits logs on errors, but we still want to log the fact that an attempted liquidation failed
             return (fail(Error(error), FailureInfo.LIQUIDATE_ACCRUE_BORROW_INTEREST_FAILED), 0);
         }
 
-        error = cTokenCollateral.accrueInterest();
+        error = pTokenCollateral.accrueInterest();
         if (error != uint(Error.NO_ERROR)) {
             // accrueInterest emits logs on errors, but we still want to log the fact that an attempted liquidation failed
             return (fail(Error(error), FailureInfo.LIQUIDATE_ACCRUE_COLLATERAL_INTEREST_FAILED), 0);
         }
 
         // liquidateBorrowFresh emits borrow-specific logs on errors, so we don't need to
-        return liquidateBorrowFresh(msg.sender, borrower, repayAmount, cTokenCollateral);
+        return liquidateBorrowFresh(msg.sender, borrower, repayAmount, pTokenCollateral);
     }
 
     /**
@@ -1107,7 +1107,7 @@ abstract contract PToken is IPToken, Exponential, TokenErrorReporter, OwnableUpg
      *  The collateral seized is transferred to the liquidator.
      * @param borrower The borrower of this cToken to be liquidated
      * @param liquidator The address repaying the borrow and seizing collateral
-     * @param cTokenCollateral The market in which to seize collateral from the borrower
+     * @param pTokenCollateral The market in which to seize collateral from the borrower
      * @param repayAmount The amount of the underlying borrowed asset to repay
      * @return (uint, uint) An error code (0=success, otherwise a failure, see ErrorReporter.sol), and the actual repayment amount.
      */
@@ -1123,7 +1123,7 @@ abstract contract PToken is IPToken, Exponential, TokenErrorReporter, OwnableUpg
             return (fail(Error.MARKET_NOT_FRESH, FailureInfo.LIQUIDATE_FRESHNESS_CHECK), 0);
         }
 
-        /* Verify cTokenCollateral market's block number equals current block number */
+        /* Verify pTokenCollateral market's block number equals current block number */
         if (pTokenCollateral.accrualBlockNumber() != getBlockNumber()) {
             return (fail(Error.MARKET_NOT_FRESH, FailureInfo.LIQUIDATE_COLLATERAL_FRESHNESS_CHECK), 0);
         }

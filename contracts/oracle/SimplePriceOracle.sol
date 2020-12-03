@@ -12,10 +12,9 @@ pragma solidity ^0.6.0;
 import "../token/PERC20.sol";
 import "./IPriceOracle.sol";
 import "../token/PToken.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/access/AccessControl.sol";
 
-contract SimplePriceOracle is IPriceOracle, AccessControl {
+contract SimplePriceOracle is IPriceOracle, AccessControlUpgradeSafe {
 
     // Create a new role identifier for the reporter role
     bytes32 public constant REPORTER_ROLE = keccak256("REPORTER_ROLE");
@@ -33,7 +32,9 @@ contract SimplePriceOracle is IPriceOracle, AccessControl {
 
     function initialize() public initializer {
         _pETHUnderlying = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
-        OwnableUpgradeSafe.__Ownable_init();
+
+        AccessControlUpgradeSafe.__AccessControl_init();
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
 
@@ -45,7 +46,7 @@ contract SimplePriceOracle is IPriceOracle, AccessControl {
         }
     }
 
-    function setUnderlyingPrice(PToken pToken, uint price)  {
+    function setUnderlyingPrice(PToken pToken, uint price) public {
 
         // Check that the calling account has the minter role
         require(hasRole(REPORTER_ROLE, msg.sender), "Caller is not a reporter");
