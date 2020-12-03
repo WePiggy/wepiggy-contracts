@@ -6,3 +6,5 @@
 
 # OpenZeppelin
 .openzeppelin/
+
+secrets.json
