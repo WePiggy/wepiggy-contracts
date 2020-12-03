@@ -12,12 +12,10 @@ pragma solidity ^0.6.0;
 import "../token/PERC20.sol";
 import "./IPriceOracle.sol";
 import "../token/PToken.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol";
 
-contract SimplePriceOracle is IPriceOracle, AccessControlUpgradeSafe {
-
-    // Create a new role identifier for the reporter role
-    bytes32 public constant REPORTER_ROLE = keccak256("REPORTER_ROLE");
+contract SimplePriceOracle is IPriceOracle, OwnableUpgradeSafe {
 
     struct Datum {
         uint timestamp;
@@ -32,9 +30,7 @@ contract SimplePriceOracle is IPriceOracle, AccessControlUpgradeSafe {
 
     function initialize() public initializer {
         _pETHUnderlying = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
-
-        AccessControlUpgradeSafe.__AccessControl_init();
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        OwnableUpgradeSafe.__Ownable_init();
     }
 
 
@@ -46,11 +42,7 @@ contract SimplePriceOracle is IPriceOracle, AccessControlUpgradeSafe {
         }
     }
 
-    function setUnderlyingPrice(PToken pToken, uint price) public {
-
-        // Check that the calling account has the minter role
-        require(hasRole(REPORTER_ROLE, msg.sender), "Caller is not a reporter");
-
+    function setUnderlyingPrice(PToken pToken, uint price) public onlyOwner {
         address asset = _pETHUnderlying;
         if (!compareStrings(pToken.symbol(), "pETH")) {
             asset = address(PERC20(address(pToken)).underlying());
@@ -60,11 +52,7 @@ contract SimplePriceOracle is IPriceOracle, AccessControlUpgradeSafe {
         emit PricePosted(asset, data[asset].price, price, price, bt);
     }
 
-    function setPrice(address asset, uint price) public  {
-
-        // Check that the calling account has the minter role
-        require(hasRole(REPORTER_ROLE, msg.sender), "Caller is not a reporter");
-
+    function setPrice(address asset, uint price) public onlyOwner {
         uint bt = block.timestamp;
         emit PricePosted(asset, data[asset].price, price, price, bt);
         data[asset] = Datum(bt, price);
