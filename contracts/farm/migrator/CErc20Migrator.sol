@@ -22,11 +22,6 @@ contract CErc20Migrator {
         comptroller = ComptrollerInterface(_comptroller);
     }
 
-    function setTargetToken(address _targetToken) public {
-        targetToken = _targetToken;
-    }
-
-
     function replaceMigrate(CTokenInterface oldLpToken) external returns (PERC20, uint){
 
         require(msg.sender == breeder, "not from breeder");

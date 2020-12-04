@@ -44,17 +44,25 @@ contract ATokenMigrator {
 
         require(lp > 0, "balance must bigger than 0");
 
+        address underlyingAssetAddress = oldLpToken.underlyingAssetAddress();
+        uint256 oldBalance = 0;
+
+        if (underlyingAssetAddress == address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)) {
+            oldBalance = self.balance;
+        } else {
+            IERC20 token = IERC20(underlyingAssetAddress);
+            oldBalance = token.balanceOf(self);
+        }
+
         oldLpToken.transferFrom(breeder, self, lp);
         oldLpToken.redeem(lp);
-
-        address underlyingAssetAddress = oldLpToken.underlyingAssetAddress();
 
         if (underlyingAssetAddress == address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)) {
 
             PEther newLpToken = PEther(targetToken);
 
             //获得赎回了多少代币
-            uint redeemBal = self.balance;
+            uint redeemBal = self.balance.sub(oldBalance);
 
             // 将赎回的代币，抵押到wePiggy中，生成pToken
             newLpToken.mintForMigrate{value : redeemBal}(lp);
@@ -74,9 +82,8 @@ contract ATokenMigrator {
             require(underlyingAssetAddress == newLpToken.underlying(), "not match");
 
             //获得赎回了多少代币
-            uint redeemBal = 0;
             IERC20 token = IERC20(underlyingAssetAddress);
-            redeemBal = token.balanceOf(self);
+            uint redeemBal = token.balanceOf(self).sub(oldBalance);
 
             // 将赎回的代币，抵押到wePiggy中，生成pToken
             token.approve(address(newLpToken), redeemBal);
