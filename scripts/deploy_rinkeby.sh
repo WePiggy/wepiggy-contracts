@@ -3,12 +3,12 @@ set -x
 set -e
 
 #!!!!!!!!!!!!!------- modify here ------#
-NETWORK=development
-TIME_LOCK_ADMIN=0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1
-PIGGY_BREEDER_START_BLOCK=100
-PIGGY_BREEDER__ENABLE_CLAIM_BLOCK=200
+NETWORK=rinkeby
+TIME_LOCK_ADMIN=
+PIGGY_BREEDER_START_BLOCK=
+PIGGY_BREEDER__ENABLE_CLAIM_BLOCK=
 ETH=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
-output_file=deployed.local_dev.env
+output_file=deployed.rinkeby_qa.env
 
 START=`date +%s`
 
@@ -27,35 +27,35 @@ npx oz compile --solc-version=0.6.12 --optimizer on
 npx oz session --network $NETWORK
 
 #==============================for mock erc20s==============================#
-YFII=`npx oz deploy -k regular -n $NETWORK MockERC20 \"YFII.finance\" \"YFII\" 1e27 18`
+YFII=`npx oz deploy -k regular -n $NETWORK MockERC20 YFII.finance YFII 1e27 18`
 print_progress "YFII = $YFII"
 echo "YFII=$YFII" >> $output_file
 
-QUSD=`npx oz deploy -k regular -n $NETWORK MockERC20 \"QUSD\ Stablecoi\" \"QUSD\" 1e27 18`
+QUSD=`npx oz deploy -k regular -n $NETWORK MockERC20 QUSD\ Stablecoi QUSD 1e27 18`
 print_progress "QUSD = $QUSD"
 echo "QUSD=$QUSD" >> $output_file
 
-HUSD=`npx oz deploy -k regular -n $NETWORK MockERC20 \"HUSD\" \"HUSD\" 1e17 8`
+HUSD=`npx oz deploy -k regular -n $NETWORK MockERC20 HUSD HUSD 1e17 8`
 print_progress "HUSD = $HUSD"
 echo "HUSD=$HUSD" >> $output_file
 
-UNI=`npx oz deploy -k regular -n $NETWORK MockERC20 \"Uniswap\" \"UNI\" 1e27 18`
+UNI=`npx oz deploy -k regular -n $NETWORK MockERC20 Uniswap UNI 1e27 18`
 print_progress "UNI = $UNI"
 echo "UNI=$UNI" >> $output_file
 
-WBTC=`npx oz deploy -k regular -n $NETWORK MockERC20 \"Wrapped\ BTC\" \"WBTC\" 1e17 8`
+WBTC=`npx oz deploy -k regular -n $NETWORK MockERC20 Wrapped\ BTC WBTC 1e17 8`
 print_progress "WBTC = $WBTC"
 echo "WBTC=$WBTC" >> $output_file
 
-DAI=`npx oz deploy -k regular -n $NETWORK MockERC20 \"Dai\ Stablecoin\" \"DAI\" 1e27 18`
+DAI=`npx oz deploy -k regular -n $NETWORK MockERC20 Dai\ Stablecoin DAI 1e27 18`
 print_progress "DAI = $DAI"
 echo "DAI=$DAI" >> $output_file
 
-USDT=`npx oz deploy -k regular -n $NETWORK MockERC20 \"Tether\ USD\" \"USDT\" 1e15 6`
+USDT=`npx oz deploy -k regular -n $NETWORK MockERC20 Tether\ USD USDT 1e15 6`
 print_progress "USDT = $USDT"
 echo "USDT=$USDT" >> $output_file
 
-USDC=`npx oz deploy -k regular -n $NETWORK MockERC20 \"USD\ Coin\" \"USDC\" 1e15 6`
+USDC=`npx oz deploy -k regular -n $NETWORK MockERC20 USD\ Coin USDC 1e15 6`
 print_progress "USDC = $USDC"
 echo "USDC=$USDC" >> $output_file
 
@@ -209,7 +209,7 @@ npx oz send-tx --to $COMPTROLLER --method _setDistributeWpcPaused --args true
 
 
 #==============================PiggyDistribution==============================#
-MOCK_TOKEN=`npx oz deploy -k regular -n $NETWORK MockERC20 \"Mock\ Token\" \"MC\" 1e27 18`
+MOCK_TOKEN=`npx oz deploy -k regular -n $NETWORK MockERC20 Mock\ Token MC 1e27 18`
 print_progress "MOCK_TOKEN = $MOCK_TOKEN"
 echo "MOCK_TOKEN=$MOCK_TOKEN" >> $output_file
 
