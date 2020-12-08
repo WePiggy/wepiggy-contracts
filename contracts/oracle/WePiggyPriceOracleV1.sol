@@ -49,20 +49,21 @@ contract WePiggyPriceOracleV1 is WePiggyPriceOracleInterface, OwnableUpgradeSafe
         if (force) {
             datum.value = price;
             datum.timestamp = block.timestamp;
+        } else {
+            TokenConfig storage config = configs[token];
+            require(config.token == token, "bad params");
+
+            uint upper = datum.value.mul(config.upperBoundAnchorRatio);
+            uint lower = datum.value.mul(config.lowerBoundAnchorRatio);
+            uint newPrice = price.mul(1e8);
+
+            require(newPrice.sub(lower) >= 0, "the price must greater than the old*lowerBoundAnchorRatio");
+            require(newPrice.sub(upper) <= 0, "the price must less than the old*upperBoundAnchorRatio");
+
+            datum.value = price;
+            datum.timestamp = block.timestamp;
         }
 
-        TokenConfig storage config = configs[token];
-        require(config.token == token, "bad params");
-
-        uint upper = datum.value.mul(config.upperBoundAnchorRatio);
-        uint lower = datum.value.mul(config.lowerBoundAnchorRatio);
-        uint newPrice = price.mul(1e8);
-
-        require(newPrice.sub(lower) >= 0, "the price must greater than the old*lowerBoundAnchorRatio");
-        require(newPrice.sub(upper) <= 0, "the price must less than the old*upperBoundAnchorRatio");
-
-        datum.value = price;
-        datum.timestamp = block.timestamp;
 
         emit PriceUpdated(token, price);
 
