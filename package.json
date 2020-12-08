@@ -4,6 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
+    "@chainlink/contracts": "^0.0.11",
     "@openzeppelin/contracts": "^3.0.0",
     "@openzeppelin/contracts-ethereum-package": "^3.0.0"
   },

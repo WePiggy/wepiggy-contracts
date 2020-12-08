@@ -2,9 +2,9 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "./WePiggyPriceOracleInterface.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface PTokenInterface {
     function underlying() external view returns (address);
@@ -39,7 +39,7 @@ interface CompoundPriceOracleInterface {
     function getTokenConfigBySymbol(string memory symbol) external view returns (CTokenConfig memory);
 }
 
-contract WePiggyPriceProviderV1 is OwnableUpgradeSafe {
+contract WePiggyPriceProviderV1 is Ownable {
 
     using SafeMath for uint256;
 
@@ -71,8 +71,7 @@ contract WePiggyPriceProviderV1 is OwnableUpgradeSafe {
     event PriceOracleUpdated(address pToken, PriceOracle[] oracles);
 
 
-    function initialize() public initializer {
-        super.__Ownable_init();
+    constructor() public {
     }
 
 
