@@ -18,14 +18,14 @@ contract WePiggyPriceOracleV1 is WePiggyPriceOracleInterface, OwnableUpgradeSafe
     struct TokenConfig {
         address token;
         string symbol;
-        uint upperBoundAnchorRatio; //1.2e8
-        uint lowerBoundAnchorRatio; //0.8e8
+        uint upperBoundAnchorRatio; //1.2e2
+        uint lowerBoundAnchorRatio; //0.8e2
     }
 
     mapping(address => Datum) private data;
     mapping(address => TokenConfig) public configs;
-    uint internal constant minLowerBoundAnchorRatio = 0.8e8;
-    uint internal constant maxUpperBoundAnchorRatio = 1.2e8;
+    uint internal constant minLowerBoundAnchorRatio = 0.8e2;
+    uint internal constant maxUpperBoundAnchorRatio = 1.2e2;
 
     bytes32 public constant REPORTER_ROLE = keccak256("REPORTER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
@@ -53,12 +53,11 @@ contract WePiggyPriceOracleV1 is WePiggyPriceOracleInterface, OwnableUpgradeSafe
             TokenConfig storage config = configs[token];
             require(config.token == token, "bad params");
 
-            uint upper = datum.value.mul(config.upperBoundAnchorRatio);
-            uint lower = datum.value.mul(config.lowerBoundAnchorRatio);
-            uint newPrice = price.mul(1e8);
+            uint upper = datum.value.mul(config.upperBoundAnchorRatio).div(1e2);
+            uint lower = datum.value.mul(config.lowerBoundAnchorRatio).div(1e2);
 
-            require(newPrice.sub(lower) >= 0, "the price must greater than the old*lowerBoundAnchorRatio");
-            require(newPrice.sub(upper) <= 0, "the price must less than the old*upperBoundAnchorRatio");
+            require(price.sub(lower) >= 0, "the price must greater than the old*lowerBoundAnchorRatio");
+            require(upper.sub(price) >= 0, "the price must less than the old*upperBoundAnchorRatio");
 
             datum.value = price;
             datum.timestamp = block.timestamp;
