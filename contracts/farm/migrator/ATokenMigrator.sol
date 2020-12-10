@@ -5,23 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../../token/PEther.sol";
 import "../../token/PERC20.sol";
+import "./ATokenInterface.sol";
 
-interface ATokenInterface {
-
-    function transfer(address dst, uint amount) external returns (bool);
-
-    function transferFrom(address src, address dst, uint amount) external returns (bool);
-
-    function approve(address spender, uint amount) external returns (bool);
-
-    function allowance(address owner, address spender) external view returns (uint);
-
-    function balanceOf(address owner) external view returns (uint);
-
-    function redeem(uint256 _amount) external;
-
-    function underlyingAssetAddress() external view returns (address);
-}
 
 contract ATokenMigrator {
 
