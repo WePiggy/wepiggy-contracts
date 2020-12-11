@@ -244,4 +244,9 @@ contract WePiggyPriceProviderV1 is Ownable {
         return (keccak256(abi.encodePacked((a))) == keccak256(abi.encodePacked((b))));
     }
 
+    function oracleLength(address pToken) public view returns (uint){
+        PriceOracle[] storage priceOracles = oracles[pToken];
+        return priceOracles.length;
+    }
+
 }
