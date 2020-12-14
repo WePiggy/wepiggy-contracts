@@ -112,18 +112,18 @@ contract WePiggyPriceProviderV1 is Ownable {
 
         PriceOracleType sourceType = priceOracle.sourceType;
         if (sourceType == PriceOracleType.ChainLink) {
-            return _getChainlinkPriceInternal(underlying, priceOracle, tokenConfig);
+            return _getChainlinkPriceInternal(priceOracle, tokenConfig);
         } else if (sourceType == PriceOracleType.Compound) {
-            return _getCompoundPriceInternal(underlying, priceOracle, tokenConfig);
+            return _getCompoundPriceInternal(priceOracle, tokenConfig);
         } else if (sourceType == PriceOracleType.Customer) {
-            return _getCustomerPriceInternal(underlying, priceOracle, tokenConfig);
+            return _getCustomerPriceInternal(priceOracle, tokenConfig);
         }
 
         return 0;
     }
 
 
-    function _getCustomerPriceInternal(address underlying, PriceOracle memory priceOracle, TokenConfig memory tokenConfig) internal view returns (uint) {
+    function _getCustomerPriceInternal(PriceOracle memory priceOracle, TokenConfig memory tokenConfig) internal view returns (uint) {
         address source = priceOracle.source;
         WePiggyPriceOracleInterface customerPriceOracle = WePiggyPriceOracleInterface(source);
         uint price = customerPriceOracle.getPrice(tokenConfig.underlying);
@@ -135,7 +135,7 @@ contract WePiggyPriceProviderV1 is Ownable {
     }
 
     // Get price from compound oracle
-    function _getCompoundPriceInternal(address underlying, PriceOracle memory priceOracle, TokenConfig memory tokenConfig) internal view returns (uint) {
+    function _getCompoundPriceInternal(PriceOracle memory priceOracle, TokenConfig memory tokenConfig) internal view returns (uint) {
         address source = priceOracle.source;
         CompoundPriceOracleInterface compoundPriceOracle = CompoundPriceOracleInterface(source);
         CompoundPriceOracleInterface.CTokenConfig memory ctc = compoundPriceOracle.getTokenConfigBySymbol(tokenConfig.underlyingSymbol);
@@ -145,7 +145,7 @@ contract WePiggyPriceProviderV1 is Ownable {
 
 
     // Get price from chainlink oracle
-    function _getChainlinkPriceInternal(address underlying, PriceOracle memory priceOracle, TokenConfig memory tokenConfig) internal view returns (uint){
+    function _getChainlinkPriceInternal(PriceOracle memory priceOracle, TokenConfig memory tokenConfig) internal view returns (uint){
 
         require(tokenConfig.baseUnit > 0, "baseUnit must be greater than zero");
 
