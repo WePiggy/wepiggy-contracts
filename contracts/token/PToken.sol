@@ -336,24 +336,23 @@ abstract contract PToken is IPToken, Exponential, TokenErrorReporter, OwnableUpg
         /* Get borrowBalance and borrowIndex */
         BorrowSnapshot storage borrowSnapshot = accountBorrows[account];
 
-        /* If borrowBalance = 0 then borrowIndex is likely also 0.
-         * Rather than failing the calculation with a division by 0, we immediately return 0 in this case.
-         */
+        if (borrowSnapshot.principal == 0) {
+            return (MathError.NO_ERROR, 0);
+        }
+        (mathErr, interestTimesIndex) = mulUInt(borrowSnapshot.principal, borrowIndex);
+        if (mathErr != MathError.NO_ERROR) {
+            return (mathErr, 0);
+        }
+
         if (borrowSnapshot.interestIndex == 0) {
             return (MathError.NO_ERROR, 0);
         }
-
-        (mathErr, interestTimesIndex) = divUInt(borrowIndex, borrowSnapshot.interestIndex);
+        (mathErr, principalTimesIndex) = divUInt(interestTimesIndex, borrowSnapshot.interestIndex);
         if (mathErr != MathError.NO_ERROR) {
             return (mathErr, 0);
         }
 
-        (mathErr, principalTimesIndex) = subUInt(interestTimesIndex, 1);
-        if (mathErr != MathError.NO_ERROR) {
-            return (mathErr, 0);
-        }
-
-        (mathErr, interestAmountPrior) = mulUInt(principalTimesIndex, borrowSnapshot.principal);
+        (mathErr, interestAmountPrior) = subUInt(principalTimesIndex, borrowSnapshot.principal);
         if (mathErr != MathError.NO_ERROR) {
             return (mathErr, 0);
         }
