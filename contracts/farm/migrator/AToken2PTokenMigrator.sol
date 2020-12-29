@@ -5,21 +5,29 @@ import "../../token/PEther.sol";
 import "../../token/PERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract AToken2PTokenMigrator {
+contract AToken2PTokenMigrator is Ownable {
 
     using SafeMath for uint256;
+
+    mapping(address => bool) aTokenMapping;
+    mapping(address => bool) pTokenMapping;
 
     constructor() public {
 
     }
 
-
     function migrate(address aToken, address payable pToken, uint amount) public {
 
-        address self = address(this);
+        require(aTokenMapping[aToken], "bad aToken");
+        require(pTokenMapping[pToken], "bad pToken");
 
         ATokenInterface aTokenInstance = ATokenInterface(aToken);
+
+        uint aTokenBalance = aTokenInstance.balanceOf(msg.sender);
+        require(amount <= aTokenBalance, "error amount");
+
         address underlyingAssetAddress = aTokenInstance.underlyingAssetAddress();
 
         //验证需要转换的两个代币是否正确
@@ -31,10 +39,8 @@ contract AToken2PTokenMigrator {
             require(pErc20.underlying() == underlyingAssetAddress, "aToken and pToken not match");
         }
 
-        uint aTokenBalance = aTokenInstance.balanceOf(msg.sender);
-        require(amount <= aTokenBalance, "error amount");
-
         //将代币转到本合约
+        address self = address(this);
         aTokenInstance.transferFrom(msg.sender, self, amount);
 
         //从AToken中赎回基础币
@@ -54,6 +60,7 @@ contract AToken2PTokenMigrator {
             mintedBalance = pTokenAfterBalance.sub(pTokenBeforeBalance);
 
             //将pToken转给用户
+            newLpToken.approve(self, mintedBalance);
             newLpToken.transferFrom(self, msg.sender, mintedBalance);
         } else {
 
@@ -70,7 +77,30 @@ contract AToken2PTokenMigrator {
             newLpToken.approve(self, mintedBalance);
             newLpToken.transferFrom(self, msg.sender, mintedBalance);
         }
-        
+
+    }
+
+
+    function set(address[] memory aTokens, address[] memory pTokens) public onlyOwner {
+
+        for (uint i = 0; i < aTokens.length; i++) {
+            address aToken = aTokens[i];
+            aTokenMapping[aToken] = true;
+        }
+
+        for (uint i = 0; i < pTokens.length; i++) {
+            address pToken = pTokens[i];
+            pTokenMapping[pToken] = true;
+        }
+
+    }
+
+    function setATokenMapping(address aToken, bool isAvailable) public onlyOwner {
+        aTokenMapping[aToken] = isAvailable;
+    }
+
+    function setPTokenMapping(address pToken, bool isAvailable) public onlyOwner {
+        pTokenMapping[pToken] = isAvailable;
     }
 
     function _getTokenBalance(address tokenAddress) internal returns (uint){
