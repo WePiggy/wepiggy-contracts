@@ -44,7 +44,27 @@ contract WePiggyPriceOracleV1 is WePiggyPriceOracleInterface, OwnableUpgradeSafe
     }
 
     function setPrice(address token, uint price, bool force) external override(WePiggyPriceOracleInterface) onlyOwner {
+        _setPrice(token, price, force);
+        emit PriceUpdated(token, price);
+    }
 
+
+    function setPrices(address[] calldata tokens, uint[] calldata prices) external onlyOwner {
+
+        require(tokens.length == prices.length, "bad params");
+
+        for (uint i = 0; i < tokens.length; i++) {
+            address token = tokens[i];
+            uint price = prices[i];
+            bool force = false;
+
+            _setPrice(token, price, force);
+            emit PriceUpdated(token, price);
+        }
+
+    }
+
+    function _setPrice(address token, uint price, bool force) internal {
         Datum storage datum = data[token];
         if (force) {
             datum.value = price;
@@ -62,10 +82,6 @@ contract WePiggyPriceOracleV1 is WePiggyPriceOracleInterface, OwnableUpgradeSafe
             datum.value = price;
             datum.timestamp = block.timestamp;
         }
-
-
-        emit PriceUpdated(token, price);
-
     }
 
     function setTokenConfig(address token, string memory symbol, uint upperBoundAnchorRatio, uint lowerBoundAnchorRatio) public onlyOwner {
