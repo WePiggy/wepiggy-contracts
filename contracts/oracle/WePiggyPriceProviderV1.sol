@@ -46,12 +46,14 @@ contract WePiggyPriceProviderV1 is Ownable {
     enum PriceOracleType{
         ChainLink,
         Compound,
-        Customer
+        Customer,
+        ChainLinkEthBase
     }
 
     struct PriceOracle {
         address source;
         PriceOracleType sourceType;
+        bool available;
     }
 
     //Config for pToken
@@ -66,6 +68,9 @@ contract WePiggyPriceProviderV1 is Ownable {
 
     mapping(address => TokenConfig) public tokenConfigs;
     mapping(address => PriceOracle[]) public oracles;
+    mapping(address => address) public chainLinkTokenEthPriceFeed;
+
+    address public ethUsdPriceFeedAddress;
 
     event ConfigUpdated(address pToken, address underlying, string underlyingSymbol, uint256 baseUnit, bool fixedUsd);
     event PriceOracleUpdated(address pToken, PriceOracle[] oracles);
@@ -87,7 +92,7 @@ contract WePiggyPriceProviderV1 is Ownable {
         PriceOracle[] storage priceOracles = oracles[_pToken];
         for (uint256 i = 0; i < priceOracles.length; i++) {
             PriceOracle storage priceOracle = priceOracles[i];
-            if (priceOracle.source != address(0)) {// check the priceOracle is available
+            if (priceOracle.available == true) {// check the priceOracle is available
                 price = _getUnderlyingPriceInternal(_pToken, tokenConfig, priceOracle);
                 if (price > 0) {
                     return price;
@@ -117,6 +122,8 @@ contract WePiggyPriceProviderV1 is Ownable {
             return _getCompoundPriceInternal(priceOracle, tokenConfig);
         } else if (sourceType == PriceOracleType.Customer) {
             return _getCustomerPriceInternal(priceOracle, tokenConfig);
+        } else if (sourceType == PriceOracleType.ChainLinkEthBase) {
+            return _getChainLinkEthBasePriceInternal(priceOracle, tokenConfig);
         }
 
         return 0;
@@ -150,13 +157,7 @@ contract WePiggyPriceProviderV1 is Ownable {
         require(tokenConfig.baseUnit > 0, "baseUnit must be greater than zero");
 
         AggregatorV3Interface priceFeed = AggregatorV3Interface(priceOracle.source);
-        (
-        uint80 roundID,
-        int price,
-        uint startedAt,
-        uint timeStamp,
-        uint80 answeredInRound
-        ) = priceFeed.latestRoundData();
+        (,int price,,,) = priceFeed.latestRoundData();
 
         if (price <= 0) {
             return 0;
@@ -166,6 +167,23 @@ contract WePiggyPriceProviderV1 is Ownable {
 
     }
 
+    // base chainlink: token-ETH-USD
+    function _getChainLinkEthBasePriceInternal(PriceOracle memory priceOracle, TokenConfig memory tokenConfig) internal view returns (uint){
+        require(tokenConfig.baseUnit > 0, "baseUnit must be greater than zero");
+
+        address token = tokenConfig.underlying;
+        AggregatorV3Interface tokenEthPriceFeed = AggregatorV3Interface(chainLinkTokenEthPriceFeed[token]);
+        (,int tokenEthPrice,,,) = tokenEthPriceFeed.latestRoundData();
+
+        AggregatorV3Interface ethUsdPriceFeed = AggregatorV3Interface(ethUsdPriceFeedAddress);
+        (,int ethUsdPrice,,,) = ethUsdPriceFeed.latestRoundData();
+
+        if (tokenEthPrice <= 0) {
+            return 0;
+        } else {// tokenEthPrice/1e18 * ethUsdPrice/1e8 * 1e36 / baseUnit
+            return uint(tokenEthPrice).mul(uint(ethUsdPrice)).mul(1e10).div(tokenConfig.baseUnit);
+        }
+    }
 
     function addTokenConfig(address pToken, address underlying, string memory underlyingSymbol, uint256 baseUnit, bool fixedUsd,
         address[] memory sources, PriceOracleType[] calldata sourceTypes) public onlyOwner {
@@ -187,7 +205,8 @@ contract WePiggyPriceProviderV1 is Ownable {
             PriceOracle[] storage list = oracles[pToken];
             list.push(PriceOracle({
             source : sources[i],
-            sourceType : sourceTypes[i]
+            sourceType : sourceTypes[i],
+            available : true
             }));
         }
 
@@ -196,8 +215,7 @@ contract WePiggyPriceProviderV1 is Ownable {
 
     }
 
-
-    function addOrUpdateTokenConfigSource(address pToken, uint256 index, address source, PriceOracleType _sourceType) public onlyOwner {
+    function addOrUpdateTokenConfigSource(address pToken, uint256 index, address source, PriceOracleType _sourceType, bool available) public onlyOwner {
 
         PriceOracle[] storage list = oracles[pToken];
 
@@ -205,10 +223,12 @@ contract WePiggyPriceProviderV1 is Ownable {
             PriceOracle storage oracle = list[index];
             oracle.source = source;
             oracle.sourceType = _sourceType;
+            oracle.available = available;
         } else {//will add
             list.push(PriceOracle({
             source : source,
-            sourceType : _sourceType
+            sourceType : _sourceType,
+            available : available
             }));
         }
 
@@ -230,6 +250,21 @@ contract WePiggyPriceProviderV1 is Ownable {
         emit ConfigUpdated(pToken, tokenConfig.underlying, tokenConfig.underlyingSymbol, tokenConfig.baseUnit, fixedUsd);
     }
 
+    function setEthUsdPriceFeedAddress(address feedAddress) public onlyOwner {
+        ethUsdPriceFeedAddress = feedAddress;
+    }
+
+    function addOrUpdateChainLinkTokenEthPriceFeed(address[] memory tokens, address[] memory chainLinkTokenEthPriceFeeds) public onlyOwner {
+
+        require(tokens.length == chainLinkTokenEthPriceFeeds.length, "tokens.length must equal than chainLinkTokenEthPriceFeeds.length");
+
+        for (uint i = 0; i < tokens.length; i++) {
+            address token = tokens[i];
+            chainLinkTokenEthPriceFeed[token] = chainLinkTokenEthPriceFeeds[i];
+        }
+
+    }
+
 
     function getOracleSourcePrice(address pToken, uint sourceIndex) public view returns (uint){
 
@@ -238,7 +273,6 @@ contract WePiggyPriceProviderV1 is Ownable {
 
         return _getUnderlyingPriceInternal(pToken, tokenConfig, priceOracles[sourceIndex]);
     }
-
 
     function compareStrings(string memory a, string memory b) internal pure returns (bool) {
         return (keccak256(abi.encodePacked((a))) == keccak256(abi.encodePacked((b))));
