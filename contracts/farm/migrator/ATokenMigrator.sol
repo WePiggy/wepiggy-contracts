@@ -2,6 +2,7 @@
 pragma solidity 0.6.12;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../../token/PEther.sol";
 import "../../token/PERC20.sol";
@@ -11,6 +12,7 @@ import "./ATokenInterface.sol";
 contract ATokenMigrator {
 
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     address public breeder;
     uint256 public notBeforeBlock;
@@ -74,7 +76,7 @@ contract ATokenMigrator {
             uint redeemBal = token.balanceOf(self).sub(oldBalance);
 
             // 将赎回的代币，抵押到wePiggy中，生成pToken
-            token.approve(address(newLpToken), redeemBal);
+            token.safeApprove(address(newLpToken), redeemBal);
             newLpToken.mintForMigrate(redeemBal, lp);
 
             // 获得抵押生成的pToken有多少
@@ -133,7 +135,7 @@ contract ATokenMigrator {
             redeemBal = token.balanceOf(self);
 
             // 将赎回的代币，抵押到wePiggy中，生成pToken
-            token.approve(address(newLpToken), redeemBal);
+            token.safeApprove(address(newLpToken), redeemBal);
             newLpToken.mint(redeemBal);
 
             // 获得抵押生成的pToken有多少

@@ -2,6 +2,7 @@
 pragma solidity 0.6.12;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./CTokenInterface.sol";
 import "../../token/PERC20.sol";
 import "./ComptrollerInterface.sol";
@@ -9,10 +10,13 @@ import "./ComptrollerInterface.sol";
 //第一次进行cERC20迁移
 contract CErc20Migrator {
 
+    using SafeERC20 for IERC20;
+
     address public breeder;
     uint256 public notBeforeBlock;
     address public targetToken;
     ComptrollerInterface comptroller;
+
 
     constructor(address _breeder, uint256 _notBeforeBlock, address _targetToken, address _comptroller) public {
         breeder = _breeder;
@@ -53,7 +57,7 @@ contract CErc20Migrator {
         redeemBal = token.balanceOf(address(this));
 
         // 将赎回的代币，抵押到wePiggy中，生成pToken
-        token.approve(address(newLpToken), redeemBal);
+        token.safeApprove(address(newLpToken), redeemBal);
         newLpToken.mintForMigrate(redeemBal, lp);
 
         // 获得抵押生成的pToken有多少

@@ -4,15 +4,17 @@ import "./ATokenInterface.sol";
 import "../../token/PEther.sol";
 import "../../token/PERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract AToken2PTokenMigrator is Ownable {
 
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
-    mapping(address => bool) aTokenMapping;
-    mapping(address => bool) pTokenMapping;
+    mapping(address => bool) public aTokenMapping;
+    mapping(address => bool) public pTokenMapping;
 
     constructor() public {
 
@@ -67,7 +69,7 @@ contract AToken2PTokenMigrator is Ownable {
             PERC20 newLpToken = PERC20(pToken);
             uint pTokenBeforeBalance = _getTokenBalance(pToken);
 
-            IERC20(underlyingAssetAddress).approve(address(newLpToken), redeemedBalance);
+            IERC20(underlyingAssetAddress).safeApprove(address(newLpToken), redeemedBalance);
             newLpToken.mint(redeemedBalance);
 
             uint pTokenAfterBalance = _getTokenBalance(pToken);
