@@ -637,10 +637,13 @@ abstract contract PToken is IPToken, Exponential, TokenErrorReporter, OwnableUpg
      * @return (uint, uint) An error code (0=success, otherwise a failure, see ErrorReporter.sol), and the actual mint amount.
      */
     function mintFresh(address minter, uint mintAmount, uint mintTokens) internal returns (uint, uint) {
+
         /* Fail if mint not allowed */
-        uint allowed = comptroller.mintAllowed(address(this), minter, mintAmount);
-        if (allowed != 0) {
-            return (failOpaque(Error.COMPTROLLER_REJECTION, FailureInfo.MINT_COMPTROLLER_REJECTION, allowed), 0);
+        if (mintTokens == 0) {
+            uint allowed = comptroller.mintAllowed(address(this), minter, mintAmount);
+            if (allowed != 0) {
+                return (failOpaque(Error.COMPTROLLER_REJECTION, FailureInfo.MINT_COMPTROLLER_REJECTION, allowed), 0);
+            }
         }
 
         /* Verify market's block number equals current block number */
