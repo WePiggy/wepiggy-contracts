@@ -36,7 +36,6 @@ interface IPiggyBreeder {
 
 contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSafe {
 
-
     IERC20 public piggy;
 
     IPiggyBreeder public piggyBreeder;
@@ -52,9 +51,6 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
         /// @notice The block number the index was last updated at
         uint32 block;
     }
-
-    /// @notice The rate at which the flywheel distributes WPC, per block
-    uint public wpcRate;
 
     /// @notice The portion of compRate that each market currently receives
     mapping(address => uint) public wpcSpeeds;
@@ -80,11 +76,14 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
     /// @notice The initial WPC index for a market
     uint224 public constant wpcInitialIndex = 1e36;
 
-    /// @notice Emitted when market comped status is changed
-    event MarketWpcMinted(PToken pToken, bool isMinted);
+    bool public enableWpcClaim;
+    bool public enableDistributeMintWpc;
+    bool public enableDistributeRedeemWpc;
+    bool public enableDistributeBorrowWpc;
+    bool public enableDistributeRepayBorrowWpc;
+    bool public enableDistributeSeizeWpc;
+    bool public enableDistributeTransferWpc;
 
-    /// @notice Emitted when WPC rate is changed
-    event NewWpcRate(uint oldWpcRate, uint newWpcRate);
 
     /// @notice Emitted when a new WPC speed is calculated for a market
     event WpcSpeedUpdated(PToken indexed pToken, uint newSpeed);
@@ -99,19 +98,29 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
 
     event ClaimWpcFromPiggyBreeder(uint pid);
 
+    event EnableState(string action, bool state);
+
     function initialize(IERC20 _piggy, IPiggyBreeder _piggyBreeder, Comptroller _comptroller) public initializer {
 
         piggy = _piggy;
         piggyBreeder = _piggyBreeder;
         comptroller = _comptroller;
 
+        enableWpcClaim = false;
+        enableDistributeMintWpc = false;
+        enableDistributeRedeemWpc = false;
+        enableDistributeBorrowWpc = false;
+        enableDistributeRepayBorrowWpc = false;
+        enableDistributeSeizeWpc = false;
+        enableDistributeTransferWpc = false;
+
         super.__Ownable_init();
     }
-
 
     function distributeMintWpc(address pToken, address minter, bool distributeAll) public override(IPiggyDistribution) {
 
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
+        require(enableDistributeMintWpc, "distributeMintWpc not enable");
 
         //        updateWpcSupplyIndex(pToken);
         //        distributeSupplierWpc(pToken, minter, distributeAll);
@@ -120,6 +129,8 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
 
     function distributeRedeemWpc(address pToken, address redeemer, bool distributeAll) public override(IPiggyDistribution) {
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
+        require(enableDistributeRedeemWpc, "distributeRedeemWpc not enable");
+
         //        updateWpcSupplyIndex(cToken);
         //        distributeSupplierWpc(cToken, redeemer, false);
     }
@@ -127,6 +138,7 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
     function distributeBorrowWpc(address pToken, address borrower, bool distributeAll) public override(IPiggyDistribution) {
 
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
+        require(enableDistributeBorrowWpc, "distributeBorrowWpc not enable");
 
         Exp memory borrowIndex = Exp({mantissa : PToken(pToken).borrowIndex()});
         updateWpcBorrowIndex(pToken, borrowIndex);
@@ -137,6 +149,7 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
     function distributeRepayBorrowWpc(address pToken, address borrower, bool distributeAll) public override(IPiggyDistribution) {
 
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
+        require(enableDistributeRepayBorrowWpc, "distributeRepayBorrowWpc not enable");
 
         Exp memory borrowIndex = Exp({mantissa : PToken(pToken).borrowIndex()});
         updateWpcBorrowIndex(pToken, borrowIndex);
@@ -146,6 +159,7 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
     function distributeSeizeWpc(address pTokenCollateral, address borrower, address liquidator, bool distributeAll) public override(IPiggyDistribution) {
 
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
+        require(enableDistributeSeizeWpc, "distributeSeizeWpc not enable");
 
         updateWpcSupplyIndex(pTokenCollateral);
         distributeSupplierWpc(pTokenCollateral, borrower, distributeAll);
@@ -155,12 +169,12 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
     function distributeTransferWpc(address pToken, address src, address dst, bool distributeAll) public override(IPiggyDistribution) {
 
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
+        require(enableDistributeTransferWpc, "distributeTransferWpc not enable");
 
         updateWpcSupplyIndex(pToken);
         distributeSupplierWpc(pToken, src, distributeAll);
         distributeSupplierWpc(pToken, dst, distributeAll);
     }
-
 
     function _stakeTokenToPiggyBreeder(IERC20 token, uint pid) public onlyOwner {
         uint amount = token.balanceOf(address(this));
@@ -174,45 +188,44 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
         emit ClaimWpcFromPiggyBreeder(pid);
     }
 
-    /**
-    * @notice Recalculate and update WPC speeds for all WPC markets
-    */
-    function _refreshWpcSpeeds() public onlyOwner {
-        refreshWpcSpeedsInternal();
-    }
-
-    function refreshWpcSpeedsInternal() internal {
-
-        PToken[] memory allMarkets_ = comptroller.getAllMarkets();
-
-        for (uint i = 0; i < allMarkets_.length; i++) {
-            PToken pToken = allMarkets_[i];
+    function setWpcSpeedInternal(PToken pToken, uint wpcSpeed) internal {
+        uint currentWpcSpeed = wpcSpeeds[address(pToken)];
+        if (currentWpcSpeed != 0) {
+            // note that COMP speed could be set to 0 to halt liquidity rewards for a market
             Exp memory borrowIndex = Exp({mantissa : pToken.borrowIndex()});
             updateWpcSupplyIndex(address(pToken));
             updateWpcBorrowIndex(address(pToken), borrowIndex);
-        }
+        } else if (wpcSpeed != 0) {
 
-        Exp memory totalUtility = Exp({mantissa : 0});
-        Exp[] memory utilities = new Exp[](allMarkets_.length);
-        for (uint i = 0; i < allMarkets_.length; i++) {
-            PToken pToken = allMarkets_[i];
-            if (comptroller.isMarketMinted(address(pToken))) {
-                uint assetPriceMantissa = comptroller.oracle().getUnderlyingPrice(pToken);
-                Exp memory assetPrice = Exp({mantissa : assetPriceMantissa});
-                Exp memory utility = mul_(assetPrice, pToken.totalBorrows());
-                utilities[i] = utility;
-                totalUtility = add_(totalUtility, utility);
+            require(comptroller.isMarketListed(address(pToken)), "wpc market is not listed");
+
+            if (comptroller.isMarketMinted(address(pToken)) == false) {
+                comptroller._setMarketMinted(address(pToken), true);
             }
+
+            if (wpcSupplyState[address(pToken)].index == 0 && wpcSupplyState[address(pToken)].block == 0) {
+                wpcSupplyState[address(pToken)] = WpcMarketState({
+                index : wpcInitialIndex,
+                block : safe32(block.number, "block number exceeds 32 bits")
+                });
+            }
+
+            if (wpcBorrowState[address(pToken)].index == 0 && wpcBorrowState[address(pToken)].block == 0) {
+                wpcBorrowState[address(pToken)] = WpcMarketState({
+                index : wpcInitialIndex,
+                block : safe32(block.number, "block number exceeds 32 bits")
+                });
+            }
+
         }
 
-        for (uint i = 0; i < allMarkets_.length; i++) {
-            PToken pToken = comptroller.getAllMarkets()[i];
-            uint newSpeed = totalUtility.mantissa > 0 ? mul_(wpcRate, div_(utilities[i], totalUtility)) : 0;
-            wpcSpeeds[address(pToken)] = newSpeed;
-            emit WpcSpeedUpdated(pToken, newSpeed);
+        if (currentWpcSpeed != wpcSpeed) {
+            wpcSpeeds[address(pToken)] = wpcSpeed;
+            emit WpcSpeedUpdated(pToken, wpcSpeed);
         }
 
     }
+
     /**
      * @notice Accrue WPC to the market by updating the supply index
      * @param pToken The market whose supply index to update
@@ -278,7 +291,7 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
         uint supplierTokens = PToken(pToken).balanceOf(supplier);
         uint supplierDelta = mul_(supplierTokens, deltaIndex);
         uint supplierAccrued = add_(wpcAccrued[supplier], supplierDelta);
-        wpcAccrued[supplier] = transferWpc(supplier, supplierAccrued, distributeAll ? 0 : wpcClaimThreshold);
+        wpcAccrued[supplier] = grantWpcInternal(supplier, supplierAccrued, distributeAll ? 0 : wpcClaimThreshold);
         emit DistributedSupplierWpc(PToken(pToken), supplier, supplierDelta, supplyIndex.mantissa);
     }
 
@@ -300,7 +313,7 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
             uint borrowerAmount = div_(PToken(pToken).borrowBalanceStored(borrower), marketBorrowIndex);
             uint borrowerDelta = mul_(borrowerAmount, deltaIndex);
             uint borrowerAccrued = add_(wpcAccrued[borrower], borrowerDelta);
-            wpcAccrued[borrower] = transferWpc(borrower, borrowerAccrued, distributeAll ? 0 : wpcClaimThreshold);
+            wpcAccrued[borrower] = grantWpcInternal(borrower, borrowerAccrued, distributeAll ? 0 : wpcClaimThreshold);
             emit DistributedBorrowerWpc(PToken(pToken), borrower, borrowerDelta, borrowIndex.mantissa);
         }
     }
@@ -313,7 +326,8 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
      * @param userAccrued The amount of WPC to (possibly) transfer
      * @return The amount of WPC which was NOT transferred to the user
      */
-    function transferWpc(address user, uint userAccrued, uint threshold) internal returns (uint) {
+    function grantWpcInternal(address user, uint userAccrued, uint threshold) internal returns (uint) {
+
         if (userAccrued >= threshold && userAccrued > 0) {
             uint wpcRemaining = piggy.balanceOf(address(this));
             if (userAccrued <= wpcRemaining) {
@@ -324,13 +338,12 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
         return userAccrued;
     }
 
-
     /**
      * @notice Claim all the wpc accrued by holder in all markets
      * @param holder The address to claim WPC for
      */
     function claimWpc(address holder) public {
-        return claimWpc(holder, comptroller.getAllMarkets());
+        claimWpc(holder, comptroller.getAllMarkets());
     }
 
     /**
@@ -352,6 +365,8 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
      * @param suppliers Whether or not to claim WPC earned by supplying
      */
     function claimWpc(address[] memory holders, PToken[] memory pTokens, bool borrowers, bool suppliers) public {
+        require(enableWpcClaim, "Claim is not enabled");
+
         for (uint i = 0; i < pTokens.length; i++) {
             PToken pToken = pTokens[i];
             require(comptroller.isMarketListed(address(pToken)), "market must be listed");
@@ -369,76 +384,75 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
                 }
             }
         }
+
     }
 
     /*** WPC Distribution Admin ***/
 
-    /**
-     * @notice Set the amount of WPC distributed per block
-     * @param wpcRate_ The amount of WPC wei per block to distribute
-     */
-    function _setWpcRate(uint wpcRate_) public onlyOwner {
-        uint oldRate = wpcRate;
-
-        wpcRate = wpcRate_;
-        emit NewWpcRate(oldRate, wpcRate_);
-
-        refreshWpcSpeedsInternal();
+    function _setWpcSpeed(PToken pToken, uint wpcSpeed) public onlyOwner {
+        setWpcSpeedInternal(pToken, wpcSpeed);
     }
 
-    /**
-     * @notice Add markets to wpcMarkets, allowing them to earn WPC in the flywheel
-     * @param pTokens The addresses of the markets to add
-     */
-    function _addWpcMarkets(address[] memory pTokens) public onlyOwner {
+    function _setEnableWpcClaim(bool state) public onlyOwner {
+        enableWpcClaim = state;
+        emit EnableState("enableWpcClaim", state);
+    }
 
-        for (uint i = 0; i < pTokens.length; i++) {
-            _addWpcMarketInternal(pTokens[i]);
+    function _setEnableDistributeMintWpc(bool state) public onlyOwner {
+        enableDistributeMintWpc = state;
+        emit EnableState("enableDistributeMintWpc", state);
+    }
+
+    function _setEnableDistributeRedeemWpc(bool state) public onlyOwner {
+        enableDistributeRedeemWpc = state;
+        emit EnableState("enableDistributeRedeemWpc", state);
+    }
+
+    function _setEnableDistributeBorrowWpc(bool state) public onlyOwner {
+        enableDistributeBorrowWpc = state;
+        emit EnableState("enableDistributeBorrowWpc", state);
+    }
+
+    function _setEnableDistributeRepayBorrowWpc(bool state) public onlyOwner {
+        enableDistributeRepayBorrowWpc = state;
+        emit EnableState("enableDistributeRepayBorrowWpc", state);
+    }
+
+    function _setEnableDistributeSeizeWpc(bool state) public onlyOwner {
+        enableDistributeSeizeWpc = state;
+        emit EnableState("enableDistributeSeizeWpc", state);
+    }
+
+    function _setEnableDistributeTransferWpc(bool state) public onlyOwner {
+        enableDistributeTransferWpc = state;
+        emit EnableState("enableDistributeTransferWpc", state);
+    }
+
+    function _setEnableAll(bool state) public onlyOwner {
+        _setEnableDistributeMintWpc(state);
+        _setEnableDistributeRedeemWpc(state);
+        _setEnableDistributeBorrowWpc(state);
+        _setEnableDistributeRepayBorrowWpc(state);
+        _setEnableDistributeSeizeWpc(state);
+        _setEnableDistributeTransferWpc(state);
+        _setEnableWpcClaim(state);
+    }
+
+
+    function _transferWpc(address to, uint amount) public onlyOwner {
+        _transferToken(address(piggy), to, amount);
+    }
+
+    function _transferToken(address token, address to, uint amount) public onlyOwner {
+        IERC20 erc20 = IERC20(token);
+
+        uint balance = erc20.balanceOf(address(this));
+        if (balance < amount) {
+            amount = balance;
         }
 
-        refreshWpcSpeedsInternal();
+        erc20.transfer(to, amount);
     }
 
-    function _addWpcMarketInternal(address pToken) internal {
-
-        require(comptroller.isMarketListed(pToken), "wpc market is not listed");
-        require(comptroller.isMarketMinted(pToken) == false, "wpc market already added");
-
-        comptroller._setMarketMinted(pToken, true);
-
-        emit MarketWpcMinted(PToken(pToken), true);
-
-        if (wpcSupplyState[pToken].index == 0 && wpcSupplyState[pToken].block == 0) {
-            wpcSupplyState[pToken] = WpcMarketState({
-            index : wpcInitialIndex,
-            block : safe32(block.number, "block number exceeds 32 bits")
-            });
-        }
-
-        if (wpcBorrowState[pToken].index == 0 && wpcBorrowState[pToken].block == 0) {
-            wpcBorrowState[pToken] = WpcMarketState({
-            index : wpcInitialIndex,
-            block : safe32(block.number, "block number exceeds 32 bits")
-            });
-        }
-    }
-
-    /**
-     * @notice Remove a market from compMarkets, preventing it from earning WPC in the flywheel
-     * @param pToken The address of the market to drop
-     */
-    function _dropWpcMarket(address pToken) public onlyOwner {
-
-        require(comptroller.isMarketMinted(pToken), "market is not a wpc market");
-
-        comptroller._setMarketMinted(pToken, false);
-        emit MarketWpcMinted(PToken(pToken), false);
-
-        refreshWpcSpeedsInternal();
-    }
-
-    function transferALLWPC(address to) public onlyOwner {
-        piggy.transfer(to, piggy.balanceOf(address(this)));
-    }
 
 }
