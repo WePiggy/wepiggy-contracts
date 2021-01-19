@@ -118,62 +118,68 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
     }
 
     function distributeMintWpc(address pToken, address minter, bool distributeAll) public override(IPiggyDistribution) {
-
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
-        require(enableDistributeMintWpc, "distributeMintWpc not enable");
-
-        //        updateWpcSupplyIndex(pToken);
-        //        distributeSupplierWpc(pToken, minter, distributeAll);
-
+        if (enableDistributeMintWpc) {
+            updateWpcSupplyIndex(pToken);
+            distributeSupplierWpc(pToken, minter, distributeAll);
+        }
     }
 
     function distributeRedeemWpc(address pToken, address redeemer, bool distributeAll) public override(IPiggyDistribution) {
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
-        require(enableDistributeRedeemWpc, "distributeRedeemWpc not enable");
-
-        //        updateWpcSupplyIndex(cToken);
-        //        distributeSupplierWpc(cToken, redeemer, false);
+        if (enableDistributeRedeemWpc) {
+            updateWpcSupplyIndex(pToken);
+            distributeSupplierWpc(pToken, redeemer, distributeAll);
+        }
     }
 
     function distributeBorrowWpc(address pToken, address borrower, bool distributeAll) public override(IPiggyDistribution) {
 
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
-        require(enableDistributeBorrowWpc, "distributeBorrowWpc not enable");
 
-        Exp memory borrowIndex = Exp({mantissa : PToken(pToken).borrowIndex()});
-        updateWpcBorrowIndex(pToken, borrowIndex);
-        distributeBorrowerWpc(pToken, borrower, borrowIndex, distributeAll);
+        if (enableDistributeBorrowWpc) {
+            Exp memory borrowIndex = Exp({mantissa : PToken(pToken).borrowIndex()});
+            updateWpcBorrowIndex(pToken, borrowIndex);
+            distributeBorrowerWpc(pToken, borrower, borrowIndex, distributeAll);
+        }
+
 
     }
 
     function distributeRepayBorrowWpc(address pToken, address borrower, bool distributeAll) public override(IPiggyDistribution) {
 
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
-        require(enableDistributeRepayBorrowWpc, "distributeRepayBorrowWpc not enable");
 
-        Exp memory borrowIndex = Exp({mantissa : PToken(pToken).borrowIndex()});
-        updateWpcBorrowIndex(pToken, borrowIndex);
-        distributeBorrowerWpc(pToken, borrower, borrowIndex, distributeAll);
+        if (enableDistributeRepayBorrowWpc) {
+            Exp memory borrowIndex = Exp({mantissa : PToken(pToken).borrowIndex()});
+            updateWpcBorrowIndex(pToken, borrowIndex);
+            distributeBorrowerWpc(pToken, borrower, borrowIndex, distributeAll);
+        }
+
     }
 
     function distributeSeizeWpc(address pTokenCollateral, address borrower, address liquidator, bool distributeAll) public override(IPiggyDistribution) {
 
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
-        require(enableDistributeSeizeWpc, "distributeSeizeWpc not enable");
 
-        updateWpcSupplyIndex(pTokenCollateral);
-        distributeSupplierWpc(pTokenCollateral, borrower, distributeAll);
-        distributeSupplierWpc(pTokenCollateral, liquidator, distributeAll);
+        if (enableDistributeSeizeWpc) {
+            updateWpcSupplyIndex(pTokenCollateral);
+            distributeSupplierWpc(pTokenCollateral, borrower, distributeAll);
+            distributeSupplierWpc(pTokenCollateral, liquidator, distributeAll);
+        }
+
     }
 
     function distributeTransferWpc(address pToken, address src, address dst, bool distributeAll) public override(IPiggyDistribution) {
 
         require(msg.sender == address(comptroller) || msg.sender == owner(), "only comptroller or owner");
-        require(enableDistributeTransferWpc, "distributeTransferWpc not enable");
 
-        updateWpcSupplyIndex(pToken);
-        distributeSupplierWpc(pToken, src, distributeAll);
-        distributeSupplierWpc(pToken, dst, distributeAll);
+        if (enableDistributeTransferWpc) {
+            updateWpcSupplyIndex(pToken);
+            distributeSupplierWpc(pToken, src, distributeAll);
+            distributeSupplierWpc(pToken, dst, distributeAll);
+        }
+
     }
 
     function _stakeTokenToPiggyBreeder(IERC20 token, uint pid) public onlyOwner {
