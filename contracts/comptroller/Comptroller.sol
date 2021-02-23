@@ -61,6 +61,9 @@ contract Comptroller is ComptrollerStorage, IComptroller, ComptrollerErrorReport
 
     event NewPiggyDistribution(IPiggyDistribution oldPiggyDistribution, IPiggyDistribution newPiggyDistribution);
 
+    /// @notice Emitted when mint cap for a pToken is changed
+    event NewMintCap(PToken indexed pToken, uint newMintCap);
+
     // closeFactorMantissa must be strictly greater than this value
     uint internal constant closeFactorMinMantissa = 0.05e18;
 
@@ -78,6 +81,8 @@ contract Comptroller is ComptrollerStorage, IComptroller, ComptrollerErrorReport
 
     // for distribute wpc
     IPiggyDistribution piggyDistribution;
+
+    mapping(address => uint256) public mintCaps;
 
     function initialize() public initializer {
 
@@ -221,7 +226,20 @@ contract Comptroller is ComptrollerStorage, IComptroller, ComptrollerErrorReport
             return uint(Error.MARKET_NOT_LISTED);
         }
 
-        //will not distribute wpc here!
+        uint mintCap = mintCaps[pToken];
+        if (mintCap != 0) {
+            uint totalSupply = PToken(pToken).totalSupply();
+            uint exchangeRate = PToken(pToken).exchangeRateStored();
+            (MathError mErr, uint balance) = mulScalarTruncate(Exp({mantissa : exchangeRate}), totalSupply);
+            require(mErr == MathError.NO_ERROR, "balance could not be calculated");
+            (MathError mathErr, uint nextTotalMints) = addUInt(balance, mintAmount);
+            require(mathErr == MathError.NO_ERROR, "total mint amount overflow");
+            require(nextTotalMints < mintCap, "market mint cap reached");
+        }
+
+        if (distributeWpcPaused == false) {
+            piggyDistribution.distributeMintWpc(pToken, minter, false);
+        }
 
         return uint(Error.NO_ERROR);
     }
@@ -243,7 +261,9 @@ contract Comptroller is ComptrollerStorage, IComptroller, ComptrollerErrorReport
             return allowed;
         }
 
-        //will not distribute wpc here!
+        if (distributeWpcPaused == false) {
+            piggyDistribution.distributeRedeemWpc(pToken, redeemer, false);
+        }
 
         return uint(Error.NO_ERROR);
     }
@@ -1010,6 +1030,19 @@ contract Comptroller is ComptrollerStorage, IComptroller, ComptrollerErrorReport
         require(msg.sender == address(piggyDistribution) || msg.sender == owner(), "only PiggyDistribution or owner can update");
 
         markets[pToken].isMinted = status;
+    }
+
+    function _setMarketMintCaps(PToken[] calldata pTokens, uint[] calldata newMintCaps) external onlyOwner {
+
+        uint numMarkets = pTokens.length;
+        uint numMintCaps = newMintCaps.length;
+
+        require(numMarkets != 0 && numMarkets == numMintCaps, "invalid input");
+
+        for (uint i = 0; i < numMarkets; i++) {
+            mintCaps[address(pTokens[i])] = newMintCaps[i];
+            emit NewBorrowCap(pTokens[i], newMintCaps[i]);
+        }
     }
 
 
