@@ -197,7 +197,7 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
     function setWpcSpeedInternal(PToken pToken, uint wpcSpeed) internal {
         uint currentWpcSpeed = wpcSpeeds[address(pToken)];
         if (currentWpcSpeed != 0) {
-            // note that COMP speed could be set to 0 to halt liquidity rewards for a market
+            // note that WPC speed could be set to 0 to halt liquidity rewards for a market
             Exp memory borrowIndex = Exp({mantissa : pToken.borrowIndex()});
             updateWpcSupplyIndex(address(pToken));
             updateWpcBorrowIndex(address(pToken), borrowIndex);
@@ -444,7 +444,6 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
         _setEnableWpcClaim(state);
     }
 
-
     function _transferWpc(address to, uint amount) public onlyOwner {
         _transferToken(address(piggy), to, amount);
     }
@@ -460,5 +459,109 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
         erc20.transfer(to, amount);
     }
 
+    function pendingWpcAccrued(address holder, bool borrowers, bool suppliers) public view returns (uint256){
+        return pendingWpcInternal(holder, borrowers, suppliers);
+    }
+
+    function pendingWpcInternal(address holder, bool borrowers, bool suppliers) internal view returns (uint256){
+
+        uint256 pendingWpc = wpcAccrued[holder];
+
+        PToken[] memory pTokens = comptroller.getAllMarkets();
+        for (uint i = 0; i < pTokens.length; i++) {
+            address pToken = address(pTokens[i]);
+            uint tmp = 0;
+            if (borrowers == true) {
+                tmp = pendingWpcBorrowInternal(holder, pToken);
+                pendingWpc = add_(pendingWpc, tmp);
+            }
+            if (suppliers == true) {
+                tmp = pendingWpcSupplyInternal(holder, pToken);
+                pendingWpc = add_(pendingWpc, tmp);
+            }
+        }
+
+        return pendingWpc;
+    }
+
+    function pendingWpcBorrowInternal(address borrower, address pToken) internal view returns (uint256){
+        if (enableDistributeBorrowWpc && enableDistributeRepayBorrowWpc) {
+            Exp memory marketBorrowIndex = Exp({mantissa : PToken(pToken).borrowIndex()});
+            WpcMarketState memory borrowState = pendingWpcBorrowIndex(pToken, marketBorrowIndex);
+
+            Double memory borrowIndex = Double({mantissa : borrowState.index});
+            Double memory borrowerIndex = Double({mantissa : wpcBorrowerIndex[pToken][borrower]});
+            if (borrowerIndex.mantissa > 0) {
+                Double memory deltaIndex = sub_(borrowIndex, borrowerIndex);
+                uint borrowerAmount = div_(PToken(pToken).borrowBalanceStored(borrower), marketBorrowIndex);
+                uint borrowerDelta = mul_(borrowerAmount, deltaIndex);
+                return borrowerDelta;
+            }
+        }
+        return 0;
+    }
+
+    function pendingWpcBorrowIndex(address pToken, Exp memory marketBorrowIndex) internal view returns (WpcMarketState memory){
+        WpcMarketState memory borrowState = wpcBorrowState[pToken];
+        uint borrowSpeed = wpcSpeeds[pToken];
+        uint blockNumber = block.number;
+        uint deltaBlocks = sub_(blockNumber, uint(borrowState.block));
+        if (deltaBlocks > 0 && borrowSpeed > 0) {
+            uint borrowAmount = div_(PToken(pToken).totalBorrows(), marketBorrowIndex);
+            uint wpcAccrued = mul_(deltaBlocks, borrowSpeed);
+            Double memory ratio = borrowAmount > 0 ? fraction(wpcAccrued, borrowAmount) : Double({mantissa : 0});
+            Double memory index = add_(Double({mantissa : borrowState.index}), ratio);
+            borrowState = WpcMarketState({
+            index : safe224(index.mantissa, "new index exceeds 224 bits"),
+            block : safe32(blockNumber, "block number exceeds 32 bits")
+            });
+        } else if (deltaBlocks > 0) {
+            borrowState = WpcMarketState({
+            index : borrowState.index,
+            block : safe32(blockNumber, "block number exceeds 32 bits")
+            });
+        }
+        return borrowState;
+    }
+
+    function pendingWpcSupplyInternal(address supplier, address pToken) internal view returns (uint256){
+        if (enableDistributeMintWpc && enableDistributeRedeemWpc) {
+            WpcMarketState memory supplyState = pendingWpcSupplyIndex(pToken);
+            Double memory supplyIndex = Double({mantissa : supplyState.index});
+            Double memory supplierIndex = Double({mantissa : wpcSupplierIndex[pToken][supplier]});
+            if (supplierIndex.mantissa == 0 && supplyIndex.mantissa > 0) {
+                supplierIndex.mantissa = wpcInitialIndex;
+            }
+            Double memory deltaIndex = sub_(supplyIndex, supplierIndex);
+            uint supplierTokens = PToken(pToken).balanceOf(supplier);
+            uint supplierDelta = mul_(supplierTokens, deltaIndex);
+            return supplierDelta;
+        }
+        return 0;
+    }
+
+    function pendingWpcSupplyIndex(address pToken) internal view returns (WpcMarketState memory){
+        WpcMarketState memory supplyState = wpcSupplyState[pToken];
+        uint supplySpeed = wpcSpeeds[pToken];
+        uint blockNumber = block.number;
+        uint deltaBlocks = sub_(blockNumber, uint(supplyState.block));
+
+        if (deltaBlocks > 0 && supplySpeed > 0) {
+            uint supplyTokens = PToken(pToken).totalSupply();
+            uint wpcAccrued = mul_(deltaBlocks, supplySpeed);
+            Double memory ratio = supplyTokens > 0 ? fraction(wpcAccrued, supplyTokens) : Double({mantissa : 0});
+            Double memory index = add_(Double({mantissa : supplyState.index}), ratio);
+            supplyState = WpcMarketState({
+            index : safe224(index.mantissa, "new index exceeds 224 bits"),
+            block : safe32(blockNumber, "block number exceeds 32 bits")
+            });
+        } else if (deltaBlocks > 0) {
+            supplyState = WpcMarketState({
+            index : supplyState.index,
+            block : safe32(blockNumber, "block number exceeds 32 bits")
+            });
+        }
+        return supplyState;
+    }
 
 }
