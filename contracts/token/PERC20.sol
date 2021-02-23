@@ -5,8 +5,12 @@ import "./PToken.sol";
 import "./IPERC20.sol";
 import "./ERC20Interface.sol";
 import "./PERC20Storage.sol";
+import "../flashloan/IFlashloan.sol";
 
 contract PERC20 is PToken, IPERC20, PERC20Storage {
+
+    IFlashloan public flashloanInstance;
+
     /**
      * @notice Initialize the new money market
      * @param underlying_ The address of the underlying asset
@@ -203,4 +207,23 @@ contract PERC20 is PToken, IPERC20, PERC20Storage {
         }
         require(success, "TOKEN_TRANSFER_OUT_FAILED");
     }
+
+    function flashloan(address _receiver, uint256 _amount, bytes memory _params) nonReentrant external {
+
+        uint256 availableLiquidityBefore = getCashPrior();
+
+        address payable fl = address(uint160(address(flashloanInstance)));
+        doTransferOut(fl, _amount);
+        flashloanInstance.flashloan(address(this), _receiver, underlying, _amount, _params);
+
+        uint availableLiquidityAfter = getCashPrior();
+        require(availableLiquidityAfter >= availableLiquidityBefore, "The actual balance of the protocol is inconsistent");
+
+        accrueInterest();
+    }
+
+    function _setFlashloan(address _flashloan) public onlyOwner {
+        flashloanInstance = IFlashloan(_flashloan);
+    }
+
 }
