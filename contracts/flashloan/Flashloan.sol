@@ -19,6 +19,7 @@ contract Flashloan is IFlashloan, OwnableUpgradeSafe {
     mapping(address => bool) public activeReceiver;
 
     event FlashLoan(address _receiver, address _reserve, uint256 _amount, uint256 amountFee, uint256 timestamp);
+    event Action(string action, address[] addresses);
 
     function initialize() public initializer {
         super.__Ownable_init();
@@ -29,6 +30,7 @@ contract Flashloan is IFlashloan, OwnableUpgradeSafe {
             address caller = callers[i];
             activeCaller[caller] = true;
         }
+        emit Action("registerActiveCaller", callers);
     }
 
     function unRegisterActiveCaller(address[] memory callers) public onlyOwner {
@@ -36,6 +38,7 @@ contract Flashloan is IFlashloan, OwnableUpgradeSafe {
             address caller = callers[i];
             activeCaller[caller] = false;
         }
+        emit Action("unRegisterActiveCaller", callers);
     }
 
     function registerActiveReceiver(address[] memory receivers) public onlyOwner {
@@ -43,6 +46,7 @@ contract Flashloan is IFlashloan, OwnableUpgradeSafe {
             address receiver = receivers[i];
             activeReceiver[receiver] = true;
         }
+        emit Action("registerActiveReceiver", receivers);
     }
 
     function unRegisterActiveReceiver(address[] memory receivers) public onlyOwner {
@@ -50,6 +54,7 @@ contract Flashloan is IFlashloan, OwnableUpgradeSafe {
             address receiver = receivers[i];
             activeReceiver[receiver] = false;
         }
+        emit Action("unRegisterActiveReceiver", receivers);
     }
 
     function transfer(address payable _destination, address _reserve, uint256 _amount) public onlyOwner {
