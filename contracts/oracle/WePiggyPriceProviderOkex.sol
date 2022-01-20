@@ -2,9 +2,9 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "./WePiggyPriceOracleInterface.sol";
+import "./OKexPriceOracleInterface.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
-import "@chainlink/contracts/src/v0.6/interfaces/FlagsInterface.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface PTokenInterface {
@@ -40,7 +40,7 @@ interface CompoundPriceOracleInterface {
     function getTokenConfigBySymbol(string memory symbol) external view returns (CTokenConfig memory);
 }
 
-contract WePiggyPriceProviderForArb is Ownable {
+contract WePiggyPriceProviderOkex is Ownable {
 
     using SafeMath for uint256;
 
@@ -48,7 +48,8 @@ contract WePiggyPriceProviderForArb is Ownable {
         ChainLink,
         Compound,
         Customer,
-        ChainLinkEthBase
+        ChainLinkEthBase,
+        Okex
     }
 
     struct PriceOracle {
@@ -72,18 +73,15 @@ contract WePiggyPriceProviderForArb is Ownable {
     mapping(address => address) public chainLinkTokenEthPriceFeed;
 
     address public ethUsdPriceFeedAddress;
-    FlagsInterface public chainlinkFlags;
-    // Identifier of the Sequencer offline flag on the Flags contract
-    address constant public FLAG_ARBITRUM_SEQ_OFFLINE = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));
+    address[] public okexOracleSources;
 
     event ConfigUpdated(address pToken, address underlying, string underlyingSymbol, uint256 baseUnit, bool fixedUsd);
     event PriceOracleUpdated(address pToken, PriceOracle[] oracles);
-    event ChainlinkFlagsUpdated(address oldOne, address newOne);
 
 
-    constructor(address _chainlinkFlags) public {
-        chainlinkFlags = FlagsInterface(_chainlinkFlags);
+    constructor() public {
     }
+
 
     function getUnderlyingPrice(address _pToken) external view returns (uint){
 
@@ -129,11 +127,12 @@ contract WePiggyPriceProviderForArb is Ownable {
             return _getCustomerPriceInternal(priceOracle, tokenConfig);
         } else if (sourceType == PriceOracleType.ChainLinkEthBase) {
             return _getChainLinkEthBasePriceInternal(priceOracle, tokenConfig);
+        } else if (sourceType == PriceOracleType.Okex) {
+            return _getOkexPriceInternal(priceOracle, tokenConfig);
         }
 
         return 0;
     }
-
 
     function _getCustomerPriceInternal(PriceOracle memory priceOracle, TokenConfig memory tokenConfig) internal view returns (uint) {
         address source = priceOracle.source;
@@ -155,17 +154,10 @@ contract WePiggyPriceProviderForArb is Ownable {
         return compoundPriceOracle.getUnderlyingPrice(cTokenAddress);
     }
 
-
     // Get price from chainlink oracle
     function _getChainlinkPriceInternal(PriceOracle memory priceOracle, TokenConfig memory tokenConfig) internal view returns (uint){
 
         require(tokenConfig.baseUnit > 0, "baseUnit must be greater than zero");
-
-        bool isRaised = chainlinkFlags.getFlag(FLAG_ARBITRUM_SEQ_OFFLINE);
-        if (isRaised) {
-            // If flag is raised we shouldn't perform any critical operations
-            revert("Chainlink feeds are not being updated");
-        }
 
         AggregatorV3Interface priceFeed = AggregatorV3Interface(priceOracle.source);
         (,int price,,,) = priceFeed.latestRoundData();
@@ -182,12 +174,6 @@ contract WePiggyPriceProviderForArb is Ownable {
     function _getChainLinkEthBasePriceInternal(PriceOracle memory priceOracle, TokenConfig memory tokenConfig) internal view returns (uint){
         require(tokenConfig.baseUnit > 0, "baseUnit must be greater than zero");
 
-        bool isRaised = chainlinkFlags.getFlag(FLAG_ARBITRUM_SEQ_OFFLINE);
-        if (isRaised) {
-            // If flag is raised we shouldn't perform any critical operations
-            revert("Chainlink feeds are not being updated");
-        }
-
         address token = tokenConfig.underlying;
         AggregatorV3Interface tokenEthPriceFeed = AggregatorV3Interface(chainLinkTokenEthPriceFeed[token]);
         (,int tokenEthPrice,,,) = tokenEthPriceFeed.latestRoundData();
@@ -200,6 +186,23 @@ contract WePiggyPriceProviderForArb is Ownable {
         } else {// tokenEthPrice/1e18 * ethUsdPrice/1e8 * 1e36 / baseUnit
             return uint(tokenEthPrice).mul(uint(ethUsdPrice)).mul(1e10).div(tokenConfig.baseUnit);
         }
+    }
+
+    // Get price from okex oracle
+    function _getOkexPriceInternal(PriceOracle memory priceOracle, TokenConfig memory tokenConfig) internal view returns (uint) {
+        require(tokenConfig.baseUnit > 0, "baseUnit must be greater than zero");
+
+        IRequesterView okexOracle = IRequesterView(priceOracle.source);
+
+        for (uint256 i = 0; i < okexOracleSources.length; i++) {
+            address okexOracleSource = okexOracleSources[i];
+            (uint256 price, uint256 timestamp) = okexOracle.get(tokenConfig.underlyingSymbol, okexOracleSource);
+            if (price > 0 && timestamp > 0) {
+                return uint(price).mul(1e30).div(tokenConfig.baseUnit);
+            }
+        }
+
+        return 0;
     }
 
     function addTokenConfig(address pToken, address underlying, string memory underlyingSymbol, uint256 baseUnit, bool fixedUsd,
@@ -271,6 +274,10 @@ contract WePiggyPriceProviderForArb is Ownable {
         ethUsdPriceFeedAddress = feedAddress;
     }
 
+    function setOkexOracleSources(address[] memory _okexOracleSources) public onlyOwner {
+        okexOracleSources = _okexOracleSources;
+    }
+
     function addOrUpdateChainLinkTokenEthPriceFeed(address[] memory tokens, address[] memory chainLinkTokenEthPriceFeeds) public onlyOwner {
 
         require(tokens.length == chainLinkTokenEthPriceFeeds.length, "tokens.length must equal than chainLinkTokenEthPriceFeeds.length");
@@ -281,13 +288,6 @@ contract WePiggyPriceProviderForArb is Ownable {
         }
 
     }
-
-    function updateChainlinkFlags(address _chainlinkFlags) public onlyOwner {
-        address old = address(chainlinkFlags);
-        chainlinkFlags = FlagsInterface(_chainlinkFlags);
-        emit ChainlinkFlagsUpdated(old, address(chainlinkFlags));
-    }
-
 
     function getOracleSourcePrice(address pToken, uint sourceIndex) public view returns (uint){
 

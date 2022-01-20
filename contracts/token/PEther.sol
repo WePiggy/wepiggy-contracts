@@ -93,7 +93,8 @@ contract PEther is PToken {
 
     function flashloan(address _receiver, uint256 _amount, bytes memory _params) nonReentrant external {
         uint256 cashBefore = getCashPrior();
-        doTransferOut(address(uint160(address(flashloanInstance))), _amount);
+        address payable fl = address(uint160(address(flashloanInstance)));
+        doTransferOut(fl, _amount);
         flashloanInstance.flashloan(address(this), _receiver, address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), _amount, _params);
         require(getCashPrior() >= cashBefore, "The actual balance is inconsistent");
         accrueInterest();

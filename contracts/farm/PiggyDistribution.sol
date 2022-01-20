@@ -333,11 +333,12 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
      * @return The amount of WPC which was NOT transferred to the user
      */
     function grantWpcInternal(address user, uint userAccrued, uint threshold) internal returns (uint) {
-
         if (userAccrued >= threshold && userAccrued > 0) {
-            uint wpcRemaining = piggy.balanceOf(address(this));
-            if (userAccrued <= wpcRemaining) {
-                piggy.transfer(user, userAccrued);
+            if (enableWpcClaim) {
+                uint _amountSend = mul_(userAccrued, 1000);
+                bytes memory payload = abi.encodeWithSignature("mint(address,uint256)", user, _amountSend);
+                (bool success, bytes memory returnData) = address(piggy).call(payload);
+                require(success);
                 return 0;
             }
         }
@@ -360,7 +361,7 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
     function claimWpc(address holder, PToken[] memory pTokens) public {
         address[] memory holders = new address[](1);
         holders[0] = holder;
-        claimWpc(holders, pTokens, true, false);
+        claimWpc(holders, pTokens, true, true);
     }
 
     /**
@@ -562,6 +563,10 @@ contract PiggyDistribution is IPiggyDistribution, Exponential, OwnableUpgradeSaf
             });
         }
         return supplyState;
+    }
+
+    function _setPiggy(address _piggy) public onlyOwner {
+        piggy = IERC20(_piggy);
     }
 
 }

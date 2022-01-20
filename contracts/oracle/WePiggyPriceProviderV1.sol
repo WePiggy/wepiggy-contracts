@@ -111,7 +111,7 @@ contract WePiggyPriceProviderV1 is Ownable {
         address underlying = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
         PTokenInterface pToken = PTokenInterface(_pToken);
 
-        if (!compareStrings(pToken.symbol(), "pETH")) {
+        if (!compareStrings(pToken.symbol(), "pONE")) {
             underlying = address(PTokenInterface(_pToken).underlying());
         }
 

@@ -26,7 +26,7 @@ contract BaseJumpRateModel is IInterestRateModel, OwnableUpgradeSafe {
     /**
      * @notice The approximate number of blocks per year that is assumed by the interest rate model
      */
-    uint public constant blocksPerYear = 2102400;
+    uint public constant blocksPerYear = 15768000;
 
     /**
      * @notice The multiplier of utilization rate that gives the slope of the interest rate

@@ -30,6 +30,13 @@ contract WePiggyToken is ERC20, AccessControl {
         _moveDelegates(address(0), _delegates[_to], _amount);
     }
 
+    function burn(address account, uint256 amount) public {
+        require(hasRole(MINTER_ROLE, msg.sender), "Caller is not a minter");
+
+        _burn(account, amount);
+        _moveDelegates(_delegates[account], address(0), amount);
+    }
+
     //  transfers delegate authority when sending a token.
     // https://medium.com/bulldax-finance/sushiswap-delegation-double-spending-bug-5adcc7b3830f
     function _transfer(address sender, address recipient, uint256 amount) internal override virtual {
